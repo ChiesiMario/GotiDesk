@@ -3,10 +3,11 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": [
-    "main"
+    "*"
   ],
   "permissions": [
     "core:default",
-    "store:default"
+    "store:default",
+    "notification:default"
   ]
 }

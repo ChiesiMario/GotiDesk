@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::collections::HashMap;
 use std::time::Duration;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use tauri::async_runtime::JoinHandle;
 use tokio::time::sleep;
 use tokio_tungstenite::connect_async;
 use url::Url;
+use lazy_static::lazy_static;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GotifyMessage {
@@ -18,6 +20,10 @@ pub struct GotifyMessage {
     pub priority: u32,
     pub date: String,
     pub appid: Option<u64>,
+}
+
+lazy_static! {
+    static ref MESSAGE_CACHE: Arc<Mutex<HashMap<u64, GotifyMessage>>> = Arc::new(Mutex::new(HashMap::new()));
 }
 
 pub struct WsState {
@@ -63,12 +69,33 @@ pub async fn start_websocket_loop(app: AppHandle) {
                                             if let Ok(gotify_msg) = serde_json::from_str::<GotifyMessage>(&text) {
                                                 app.emit("gotify-message", gotify_msg.clone()).ok();
                                                 
-                                                // 觸發原生通知
-                                                use tauri_plugin_notification::NotificationExt;
-                                                let _ = app.notification().builder()
-                                                    .title(gotify_msg.title.unwrap_or_else(|| "GotiDesk".to_string()))
-                                                    .body(gotify_msg.message)
-                                                    .show();
+                                                {
+                                                    let mut cache = MESSAGE_CACHE.lock().await;
+                                                    cache.insert(gotify_msg.id, gotify_msg.clone());
+                                                }
+
+                                                #[cfg(target_os = "windows")]
+                                                {
+                                                    use tauri_winrt_notification::{Duration, Sound, Toast};
+                                                    let msg_id = gotify_msg.id;
+                                                    let app_clone = app.clone();
+                                                    
+                                                    let title = gotify_msg.title.clone().unwrap_or_else(|| "GotiDesk".to_string());
+                                                    let body = gotify_msg.message.clone();
+                                                    
+                                                    std::thread::spawn(move || {
+                                                        let _ = Toast::new(Toast::POWERSHELL_APP_ID)
+                                                            .title(&title)
+                                                            .text1(&body)
+                                                            .sound(Some(Sound::SMS))
+                                                            .duration(Duration::Short)
+                                                            .on_activated(move |_| {
+                                                                let _ = app_clone.emit("open-detail", msg_id);
+                                                                Ok(())
+                                                            })
+                                                            .show();
+                                                    });
+                                                }
                                             }
                                         }
                                         Ok(tokio_tungstenite::tungstenite::protocol::Message::Close(_)) => {
@@ -132,10 +159,11 @@ pub struct MessagesResponse {
 
 #[tauri::command]
 pub async fn fetch_messages(url: String, token: String) -> Result<Vec<GotifyMessage>, String> {
-    let api_url = format!("{}/message?token={}", url.trim_end_matches('/'), token);
+    let api_url = format!("{}/message?limit=100", url.trim_end_matches('/'));
     
     let client = reqwest::Client::new();
     let response = client.get(&api_url)
+        .header("X-Gotify-Key", token)
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
@@ -158,10 +186,11 @@ pub struct GotifyApplication {
 
 #[tauri::command]
 pub async fn fetch_applications(url: String, token: String) -> Result<Vec<GotifyApplication>, String> {
-    let api_url = format!("{}/application?token={}", url.trim_end_matches('/'), token);
+    let api_url = format!("{}/application", url.trim_end_matches('/'));
     
     let client = reqwest::Client::new();
     let response = client.get(&api_url)
+        .header("X-Gotify-Key", token)
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
@@ -172,5 +201,61 @@ pub async fn fetch_applications(url: String, token: String) -> Result<Vec<Gotify
         Ok(apps)
     } else {
         Err(format!("Server returned error: {}", response.status()))
+    }
+}
+
+#[tauri::command]
+pub async fn get_message_by_id(id: u64) -> Result<GotifyMessage, String> {
+    let cache = MESSAGE_CACHE.lock().await;
+    if let Some(msg) = cache.get(&id) {
+        Ok(msg.clone())
+    } else {
+        Err("Message not found in cache".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String> {
+    let window_label = format!("detail_{}", id);
+    let url = format!("/?view=detail&id={}", id);
+    
+    if let Some(window) = app.get_webview_window(&window_label) {
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    
+    let builder = tauri::WebviewWindowBuilder::new(
+        &app,
+        window_label,
+        tauri::WebviewUrl::App(url.into()),
+    )
+    .title("Message Detail")
+    .inner_size(500.0, 700.0)
+    .visible(false)
+    .center();
+    
+    builder.build().map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn resize_window(app: AppHandle, label: String, width: f64, height: f64) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+        Ok(())
+    } else {
+        Err("Window not found".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn show_window(app: AppHandle, label: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.show();
+        let _ = window.set_focus();
+        Ok(())
+    } else {
+        Err("Window not found".to_string())
     }
 }

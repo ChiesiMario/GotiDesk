@@ -13,11 +13,16 @@ pub fn run() {
     .plugin(tauri_plugin_notification::init())
     .manage(websocket::WsState {
         task: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+        
     })
     .invoke_handler(tauri::generate_handler![
         websocket::restart_websocket,
         websocket::fetch_messages,
-        websocket::fetch_applications
+        websocket::fetch_applications,
+        websocket::get_message_by_id,
+        websocket::create_detail_window,
+        websocket::resize_window,
+        websocket::show_window
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -78,8 +83,10 @@ pub fn run() {
     })
     .on_window_event(|window, event| match event {
         WindowEvent::CloseRequested { api, .. } => {
-            window.hide().unwrap();
-            api.prevent_close();
+            if window.label() == "main" {
+                window.hide().unwrap();
+                api.prevent_close();
+            }
         }
         _ => {}
     })

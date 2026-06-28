@@ -2,7 +2,9 @@
   import { load } from '@tauri-apps/plugin-store';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
-  import { onMount } from 'svelte';
+  import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+  import { LogicalSize } from '@tauri-apps/api/dpi';
+  import { onMount, tick } from 'svelte';
 
   interface GotifyMessage {
     id: number;
@@ -21,7 +23,9 @@
 
   let store: any = null;
 
-  let currentView: 'loading' | 'login' | 'messages' = $state('loading');
+  let currentView: 'loading' | 'login' | 'messages' | 'detail' = $state('loading');
+  
+  // States for messages view
   let url = $state('');
   let token = $state('');
   let isSaving = $state(false);
@@ -31,37 +35,80 @@
   let isLoadingData = $state(false);
   let errorMessage = $state('');
 
+  // States for detail view
+  let detailMessageId: number | null = $state(null);
+  let detailMessage: GotifyMessage | null = $state(null);
+
   let filteredMessages = $derived(
     selectedAppId === null 
       ? messages 
       : messages.filter(m => m.appid === selectedAppId)
   );
 
-  onMount(async () => {
-    try {
-      store = await load('settings.json');
+  onMount(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    
+    if (viewParam === 'detail') {
+      const msgIdStr = urlParams.get('id');
+      if (msgIdStr) {
+        detailMessageId = parseInt(msgIdStr);
+        currentView = 'detail';
+        invoke<GotifyMessage>('get_message_by_id', { id: detailMessageId })
+          .then(async msg => {
+            detailMessage = msg;
+            await tick();
+            adjustWindowSize();
+          })
+          .catch(e => errorMessage = String(e));
+      } else {
+        errorMessage = "Invalid Message ID";
+        currentView = 'detail';
+      }
+      return; // Skip normal main view init
+    }
+
+    // Main window initialization
+    load('settings.json').then(async s => {
+      store = s;
       const savedUrl = await store.get('gotify_url');
       const savedToken = await store.get('gotify_token');
       
       if (savedUrl && savedToken) {
-        url = savedUrl;
-        token = savedToken;
+        url = savedUrl as string;
+        token = savedToken as string;
         currentView = 'messages';
         loadData();
       } else {
         currentView = 'login';
       }
-    } catch (e) {
+    }).catch(e => {
       console.warn("載入設定失敗:", e);
       currentView = 'login';
-    }
+    });
 
-    const unlisten = await listen<GotifyMessage>('gotify-message', (event) => {
+    let unlistenMessage: (() => void) | undefined;
+    listen<GotifyMessage>('gotify-message', (event) => {
       messages = [event.payload, ...messages];
+    }).then(unlisten => {
+      unlistenMessage = unlisten;
+    });
+
+    let unlistenDetail: (() => void) | undefined;
+    listen<number>('open-detail', (event) => {
+      const msgId = event.payload;
+      if (msgId) {
+        invoke('create_detail_window', { id: msgId }).catch(e => {
+            console.error("Failed to open window:", e);
+        });
+      }
+    }).then(unlisten => {
+      unlistenDetail = unlisten;
     });
 
     return () => {
-      unlisten();
+      if (unlistenMessage) unlistenMessage();
+      if (unlistenDetail) unlistenDetail();
     };
   });
 
@@ -138,6 +185,33 @@
     if (priority > 2) return 'bg-amber-400';
     return 'bg-blue-500';
   }
+
+  function closeWindow() {
+    getCurrentWebviewWindow().close();
+  }
+
+  async function adjustWindowSize() {
+    try {
+      const contentEl = document.getElementById('detail-content-inner');
+      if (contentEl) {
+        const contentHeight = contentEl.scrollHeight;
+        const headerHeight = 60; // Approximate header height
+        const verticalPadding = 64; // p-8 is 32px top and bottom = 64px
+        let targetHeight = contentHeight + headerHeight + verticalPadding;
+        
+        const MAX_HEIGHT = 800;
+        const MIN_HEIGHT = 200;
+        
+        if (targetHeight > MAX_HEIGHT) targetHeight = MAX_HEIGHT;
+        if (targetHeight < MIN_HEIGHT) targetHeight = MIN_HEIGHT;
+        
+        await invoke('resize_window', { label: 'detail_' + detailMessageId, width: 500, height: targetHeight });
+        await invoke('show_window', { label: 'detail_' + detailMessageId });
+      }
+    } catch (e) {
+      console.warn("Failed to resize window", e);
+    }
+  }
 </script>
 
 <main class="h-screen bg-white text-black relative overflow-hidden font-sans flex flex-col selection:bg-black selection:text-white antialiased">
@@ -149,6 +223,47 @@
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
       </div>
+    </div>
+  {:else if currentView === 'detail'}
+    <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
+      <h1 class="text-sm font-semibold tracking-tight text-gray-400 uppercase">Message Details</h1>
+      <button 
+        onclick={closeWindow}
+        class="text-xs font-medium text-gray-500 hover:text-black bg-white hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors"
+      >
+        Close
+      </button>
+    </header>
+    <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+      {#if errorMessage}
+        <div class="bg-red-50 border border-red-200 text-red-600 rounded-md p-4 text-sm">
+          {errorMessage}
+        </div>
+      {:else if detailMessage}
+        <div id="detail-content-inner" class="max-w-2xl mx-auto w-full space-y-6">
+          <div>
+            <div class="flex items-center space-x-2 mb-3">
+              <div class={`w-2.5 h-2.5 rounded-full ${getPriorityColor(detailMessage.priority)}`}></div>
+              <span class="text-xs font-mono text-gray-400 tracking-tighter">
+                {formatDate(detailMessage.date)}
+              </span>
+            </div>
+            <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
+              {detailMessage.title || 'Notification'}
+            </h1>
+          </div>
+          
+          <div class="h-px w-full bg-gray-200"></div>
+          
+          <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
+            {detailMessage.message}
+          </div>
+        </div>
+      {:else}
+        <div class="flex-1 flex items-center justify-center h-full">
+          <div class="animate-spin h-5 w-5 text-gray-400">...</div>
+        </div>
+      {/if}
     </div>
   {:else if currentView === 'login'}
     <div class="flex-1 flex flex-col p-6 relative z-10 items-center justify-center bg-white">
