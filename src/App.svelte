@@ -616,7 +616,18 @@
     </div>
   {:else if currentView === 'detail'}
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-      <h1 class="text-sm font-semibold tracking-tight text-gray-400 uppercase">{t('detail.title')}</h1>
+      <h1 class="text-sm font-semibold tracking-tight text-gray-500 uppercase flex items-center space-x-1">
+        {#if detailMessage}
+          <span>{apps.find(a => a.id === detailMessage!.appid)?.name || `App ${detailMessage.appid}`}</span>
+          <span class="text-gray-300 mx-1">-</span>
+          <div class="group/time cursor-default tracking-tighter normal-case font-medium">
+            <span class="group-hover/time:hidden">{getRelativeTime(detailMessage.date)}</span>
+            <span class="hidden group-hover/time:block">{formatDate(detailMessage.date)}</span>
+          </div>
+        {:else}
+          <span>{t('detail.title')}</span>
+        {/if}
+      </h1>
       <div class="flex items-center space-x-3">
       </div>
     </header>
@@ -636,11 +647,6 @@
                 </div>
                 <span class="align-middle">{formatText(detailMessage.title || t('common.notification'))}</span>
               </h1>
-              {#if detailMessage.appid}
-                <div class="mt-2 ml-6 text-sm text-gray-500 font-medium">
-                  {apps.find(a => a.id === detailMessage!.appid)?.name || `App ${detailMessage.appid}`}
-                </div>
-              {/if}
             </div>
           </div>
 
@@ -674,13 +680,6 @@
           
           <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words markdown-content">
             {@html renderMarkdown(formatText(detailMessage.message))}
-          </div>
-          
-          <div class="mt-6 flex justify-end">
-            <div class="group/time cursor-default text-xs text-gray-400 tracking-tighter text-right">
-              <span class="group-hover/time:hidden">{getRelativeTime(detailMessage.date)}</span>
-              <span class="hidden group-hover/time:block">{formatDate(detailMessage.date)}</span>
-            </div>
           </div>
         </div>
       {:else}
