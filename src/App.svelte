@@ -5,6 +5,8 @@
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { LogicalSize } from '@tauri-apps/api/dpi';
   import { onMount, tick } from 'svelte';
+  import { marked } from 'marked';
+  import DOMPurify from 'dompurify';
 
   interface GotifyMessage {
     id: number;
@@ -38,6 +40,19 @@
   // States for detail view
   let detailMessageId: number | null = $state(null);
   let detailMessage: GotifyMessage | null = $state(null);
+  
+  let isFontLoading = $state(true);
+
+  function renderMarkdown(text: string) {
+    if (!text) return '';
+    try {
+      const rawHtml = marked.parse(text, { breaks: true, gfm: true }) as string;
+      return DOMPurify.sanitize(rawHtml);
+    } catch (e) {
+      console.warn("Markdown parsing error", e);
+      return text;
+    }
+  }
 
   let filteredMessages = $derived(
     selectedAppId === null 
@@ -46,6 +61,19 @@
   );
 
   onMount(() => {
+    // Background font loading
+    const fontLink = document.createElement('link');
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap';
+    fontLink.rel = 'stylesheet';
+    fontLink.onload = () => { 
+      document.fonts.ready.then(() => {
+        // Ensure it shows for at least a brief moment so it doesn't flicker invisibly if cached
+        setTimeout(() => { isFontLoading = false; }, 300);
+      });
+    };
+    fontLink.onerror = () => { isFontLoading = false; };
+    document.head.appendChild(fontLink);
+
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
     
@@ -186,10 +214,6 @@
     return 'bg-blue-500';
   }
 
-  function closeWindow() {
-    getCurrentWebviewWindow().close();
-  }
-
   async function adjustWindowSize() {
     try {
       const contentEl = document.getElementById('detail-content-inner');
@@ -214,7 +238,24 @@
   }
 </script>
 
-<main class="h-screen bg-white text-black relative overflow-hidden font-sans flex flex-col selection:bg-black selection:text-white antialiased">
+<main class="h-screen bg-white text-black relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased">
+  {#snippet fontStatusIndicator()}
+    <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 transition-colors">
+      {#if isFontLoading}
+        <svg class="animate-spin h-3.5 w-3.5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-[11px] font-medium text-gray-600">加載中...</span>
+      {:else}
+        <svg class="h-3.5 w-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span class="text-[11px] font-medium text-gray-600">已加載</span>
+      {/if}
+    </div>
+  {/snippet}
+
   {#if currentView === 'loading'}
     <div class="flex-1 flex items-center justify-center relative z-10">
       <div class="animate-spin h-5 w-5 text-gray-400">
@@ -227,12 +268,7 @@
   {:else if currentView === 'detail'}
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
       <h1 class="text-sm font-semibold tracking-tight text-gray-400 uppercase">Message Details</h1>
-      <button 
-        onclick={closeWindow}
-        class="text-xs font-medium text-gray-500 hover:text-black bg-white hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors"
-      >
-        Close
-      </button>
+      {@render fontStatusIndicator()}
     </header>
     <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
       {#if errorMessage}
@@ -255,8 +291,8 @@
           
           <div class="h-px w-full bg-gray-200"></div>
           
-          <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
-            {detailMessage.message}
+          <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words markdown-content">
+            {@html renderMarkdown(detailMessage.message)}
           </div>
         </div>
       {:else}
@@ -328,12 +364,15 @@
         </div>
         <h1 class="text-sm font-semibold tracking-tight text-black">GotiDesk</h1>
       </div>
-      <button 
-        onclick={logout}
-        class="text-xs font-medium text-gray-500 hover:text-black border border-gray-200 bg-white hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors"
-      >
-        Logout
-      </button>
+      <div class="flex items-center space-x-3">
+        {@render fontStatusIndicator()}
+        <button 
+          onclick={logout}
+          class="text-xs font-medium text-gray-500 hover:text-black border border-gray-200 bg-white hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors"
+        >
+          Logout
+        </button>
+      </div>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
@@ -402,8 +441,8 @@
                     {formatDate(msg.date)}
                   </span>
                 </div>
-                <div class="text-sm text-gray-600 leading-relaxed pl-4">
-                  {msg.message}
+                <div class="text-sm text-gray-600 leading-relaxed markdown-content">
+                  {@html renderMarkdown(msg.message)}
                 </div>
               </div>
             {/each}
@@ -416,7 +455,7 @@
 
 <style>
   :global(body) {
-    font-family: 'Geist Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Noto Sans SC', 'Noto Sans TC', "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "PingFang TC", "Microsoft JhengHei", 'Geist Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   
   .custom-scrollbar::-webkit-scrollbar {
@@ -439,5 +478,51 @@
   }
   .animate-slide-up {
     animation: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  :global(.markdown-content p) {
+    margin-bottom: 0.5em;
+  }
+  :global(.markdown-content p:last-child) {
+    margin-bottom: 0;
+  }
+  :global(.markdown-content a) {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+  :global(.markdown-content ul) {
+    list-style-type: disc;
+    padding-left: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  :global(.markdown-content ol) {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  :global(.markdown-content blockquote) {
+    border-left: 3px solid #e5e7eb;
+    padding-left: 1em;
+    color: #6b7280;
+    margin-bottom: 0.5em;
+  }
+  :global(.markdown-content code) {
+    background-color: #f3f4f6;
+    padding: 0.1em 0.3em;
+    border-radius: 0.25em;
+    font-size: 0.9em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+  :global(.markdown-content pre) {
+    background-color: #f3f4f6;
+    padding: 0.75em;
+    border-radius: 0.375em;
+    overflow-x: auto;
+    margin-bottom: 0.5em;
+  }
+  :global(.markdown-content pre code) {
+    background-color: transparent;
+    padding: 0;
+    font-size: 0.85em;
   }
 </style>
