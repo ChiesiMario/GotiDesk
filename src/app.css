@@ -13,6 +13,13 @@ body {
   color: #000;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  border-top: 1px solid #d1d5db;
+  box-sizing: border-box;
+  height: 100vh;
+}
+
+.dark body {
+  border-top: 1px solid #374151;
 }
 
 /* View Transitions for Dark Mode */
