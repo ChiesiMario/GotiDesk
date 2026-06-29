@@ -638,8 +638,8 @@
 <main class="h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased">
   
   <!-- Custom Titlebar -->
-  <div data-tauri-drag-region class="h-7 w-full flex items-center justify-end shrink-0 select-none cursor-default">
-    <div class="flex h-full">
+  <div data-tauri-drag-region class="h-7 w-full flex items-center justify-end shrink-0 select-none [-webkit-app-region:drag]">
+    <div class="flex h-full [-webkit-app-region:no-drag]">
       <button onclick={() => getCurrentWindow().minimize()} class="h-full px-4 inline-flex items-center justify-center text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none" tabindex="-1" title="Minimize">
         <svg class="w-[10px] h-[10px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"></path></svg>
       </button>
