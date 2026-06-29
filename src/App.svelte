@@ -1045,7 +1045,7 @@
                   <div class="space-y-5">
                     <div class="flex items-center justify-between">
                       <label for="settings-pangu" class="block text-sm font-medium text-gray-700">{t('settings.enablePangu')}</label>
-                      <input type="checkbox" id="settings-pangu" bind:checked={enablePangu} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                      <input type="checkbox" id="settings-pangu" bind:checked={enablePangu} onchange={saveSettingsInline} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
                     </div>
                   </div>
 
