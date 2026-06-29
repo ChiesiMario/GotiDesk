@@ -1,5 +1,6 @@
 <script lang="ts">
   import { load } from '@tauri-apps/plugin-store';
+  import { getVersion } from '@tauri-apps/api/app';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
   import { open } from '@tauri-apps/plugin-shell';
@@ -253,6 +254,8 @@
   // Custom Window State
   let isWindowMaximized = $state(false);
   let showSettings = $state(false);
+  let settingsActiveTab: 'main' | 'about' = $state('main');
+  let appVersion = $state('');
   let wsStatus = $state('disconnected');
   let justEnabledPush = $state(false);
   let mobileView = $state<'master' | 'detail'>('master');
@@ -301,6 +304,8 @@
     invoke<string[]>('get_system_fonts').then(fonts => {
       systemFonts = fonts;
     }).catch(e => console.error("Failed to load system fonts", e));
+
+    getVersion().then(v => appVersion = v);
 
     // Main window initialization
     load('settings.json').then(async s => {
@@ -1105,15 +1110,21 @@
             </button>
             <h2 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-3">{t('sidebar.settings')}</h2>
             <nav class="space-y-1">
-              <a href="#settings-general" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100">
-                {t('settings.general')}
-              </a>
-              <a href="#settings-appearance" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100">
-                {t('settings.appearance')}
-              </a>
-              <a href="#settings-notifications" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100">
-                {t('settings.notifications')}
-              </a>
+              <div class={settingsActiveTab === 'about' ? 'opacity-50' : ''}>
+                <a href="#settings-general" onclick={() => settingsActiveTab = 'main'} class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-black dark:hover:bg-gray-800 dark:hover:text-gray-100">
+                  {t('settings.general')}
+                </a>
+                <a href="#settings-appearance" onclick={() => settingsActiveTab = 'main'} class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-black dark:hover:bg-gray-800 dark:hover:text-gray-100">
+                  {t('settings.appearance')}
+                </a>
+                <a href="#settings-notifications" onclick={() => settingsActiveTab = 'main'} class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-black dark:hover:bg-gray-800 dark:hover:text-gray-100">
+                  {t('settings.notifications')}
+                </a>
+              </div>
+              <div class="my-4 border-t border-gray-200 dark:border-gray-700 mx-3"></div>
+              <button onclick={() => settingsActiveTab = 'about'} class={`block w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${settingsActiveTab === 'about' ? 'bg-gray-100 text-black dark:bg-gray-800 dark:text-white font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 hover:text-gray-900 dark:hover:bg-gray-800/50 dark:hover:text-gray-200'}`}>
+                {t('sidebar.about')}
+              </button>
             </nav>
           </div>
         {:else}
@@ -1200,7 +1211,8 @@
           <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
             <div class="max-w-2xl w-full space-y-8 scroll-smooth">
               
-              <form onsubmit={(e) => { e.preventDefault(); saveSettingsInline(); }} class="space-y-12 max-w-md pb-10">
+              {#if settingsActiveTab === 'main'}
+                <form onsubmit={(e) => { e.preventDefault(); saveSettingsInline(); }} class="space-y-12 max-w-md pb-10">
                 <!-- General Section -->
                 <div class="space-y-6">
                   <h2 id="settings-general" class="text-xl font-bold tracking-tight text-black dark:text-gray-100 border-b border-gray-100 pb-2 pt-4">{t('settings.general')}</h2>
@@ -1320,6 +1332,36 @@
                   </button>
                 </div>
               </form>
+              {:else if settingsActiveTab === 'about'}
+                <div class="space-y-10 max-w-md pb-10 pt-4 flex flex-col items-center text-center animate-fade-in-up">
+                  <div class="w-32 h-32 mb-4">
+                    <Logo />
+                  </div>
+                  
+                  <div class="space-y-1">
+                    <h2 class="text-2xl font-bold tracking-tight text-black dark:text-gray-100">GotiDesk</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">v{appVersion}</p>
+                  </div>
+                  
+                  <div class="space-y-4 w-full pt-6">
+                    <button 
+                      onclick={() => open('https://github.com/ChiesiMario/GotiDesk')}
+                      class="w-full flex items-center justify-center space-x-2 h-10 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors font-medium text-sm"
+                    >
+                      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"></path>
+                      </svg>
+                      <span>{t('about.github')}</span>
+                    </button>
+                  </div>
+                  
+                  <div class="pt-8 text-center">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      Crafted with ❤️ by <a href="#" onclick={(e) => { e.preventDefault(); open('https://github.com/ChiesiMario'); }} class="font-medium text-black dark:text-gray-200 hover:underline">ChiesiMario</a>
+                    </p>
+                  </div>
+                </div>
+              {/if}
             </div>
           </div>
         {:else}
