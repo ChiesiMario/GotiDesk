@@ -8,18 +8,12 @@ const app = mount(App, {
   target: document.getElementById('app')!,
 })
 
-// Prevent default browser context menu
+// Prevent default browser context menu globally
 document.addEventListener('contextmenu', e => {
-  // Allow right click if we are clicking on an input or textarea
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-    return;
-  }
-  // Allow text selection to be copied, but prevent the menu itself
-  const selection = window.getSelection();
-  if (selection && selection.toString().length === 0) {
+  // In dev mode, we might want to inspect elements if we hold Shift, but the user requested strict blocking.
+  // To allow emergency debugging, we only let Shift+RightClick pass through.
+  if (!e.shiftKey) {
     e.preventDefault();
-  } else if (!import.meta.env.DEV) {
-     e.preventDefault(); // In prod, always prevent to feel native, user can use Ctrl+C
   }
 });
 
