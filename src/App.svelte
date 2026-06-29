@@ -1223,9 +1223,9 @@
                 {#if selectedAppId !== null}
                   <button 
                     class={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                    deleteAllConfirmState === 0 ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' : 
-                    deleteAllConfirmState === 1 ? 'bg-red-500 text-white hover:bg-red-600' : 
-                    'bg-red-700 text-white hover:bg-red-800'
+                    deleteAllConfirmState === 0 ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800' : 
+                    deleteAllConfirmState === 1 ? 'bg-red-500 dark:bg-red-600 text-white hover:bg-red-600 dark:hover:bg-red-700' : 
+                    'bg-red-700 dark:bg-red-800 text-white hover:bg-red-800 dark:hover:bg-red-900'
                   }`}
                   onclick={handleDeleteAll}
                   disabled={isDeletingAll || filteredMessages.length === 0}
