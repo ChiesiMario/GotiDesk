@@ -309,8 +309,8 @@ pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String>
         }
     }
     
-    let _ = window.show();
-    let _ = window.set_focus();
+    // We do NOT show the window here. We let the frontend call show_window
+    // after it finishes adjusting the height based on content.
     
     Ok(())
 }
@@ -319,6 +319,20 @@ pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String>
 pub async fn resize_window(app: AppHandle, label: String, width: f64, height: f64) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+        
+        // Re-adjust position to keep it vertically centered on the right
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let monitor_size = monitor.size();
+            let scale_factor = monitor.scale_factor();
+            let margin = (24.0 * scale_factor) as i32;
+            let physical_width = (width * scale_factor) as i32;
+            let physical_height = (height * scale_factor) as i32;
+            
+            let x = monitor_size.width as i32 - physical_width - margin;
+            let y = ((monitor_size.height as i32) - physical_height) / 2;
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+        }
+        
         Ok(())
     } else {
         Err("Window not found".to_string())

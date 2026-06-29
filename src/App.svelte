@@ -582,13 +582,13 @@
         const verticalPadding = 64; // p-8 is 32px top and bottom = 64px
         let targetHeight = contentHeight + headerHeight + verticalPadding;
         
-        const MAX_HEIGHT = 800;
-        const MIN_HEIGHT = 200;
+        const MAX_HEIGHT = 900;
+        const MIN_HEIGHT = 500;
         
         if (targetHeight > MAX_HEIGHT) targetHeight = MAX_HEIGHT;
         if (targetHeight < MIN_HEIGHT) targetHeight = MIN_HEIGHT;
         
-        await invoke('resize_window', { label: 'detail_' + detailMessageId, width: 500, height: targetHeight });
+        await invoke('resize_window', { label: 'detail_' + detailMessageId, width: 400, height: targetHeight });
         await invoke('show_window', { label: 'detail_' + detailMessageId });
       }
     } catch (e) {
