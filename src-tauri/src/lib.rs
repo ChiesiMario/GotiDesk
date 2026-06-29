@@ -23,10 +23,29 @@ fn quit_app() {
     std::process::exit(0);
 }
 
+#[tauri::command]
+fn app_ready(app: tauri::AppHandle) {
+    let args: Vec<String> = std::env::args().collect();
+    if !args.contains(&"--hidden".to_string()) {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .plugin(tauri_plugin_window_state::Builder::new().build())
+    .plugin(
+        tauri_plugin_window_state::Builder::default()
+            .with_state_flags(
+                tauri_plugin_window_state::StateFlags::SIZE | 
+                tauri_plugin_window_state::StateFlags::POSITION | 
+                tauri_plugin_window_state::StateFlags::MAXIMIZED
+            )
+            .build()
+    )
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_autostart::init(
         tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -50,7 +69,8 @@ pub fn run() {
         websocket::delete_all_messages,
         websocket::get_ws_status,
         get_system_fonts,
-        quit_app
+        quit_app,
+        app_ready
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -82,11 +102,8 @@ pub fn run() {
       let app_handle = app.handle().clone();
 
       let args: Vec<String> = std::env::args().collect();
-      if !args.contains(&"--hidden".to_string()) {
-          if let Some(window) = app.get_webview_window("main") {
-              let _ = window.show();
-          }
-      }
+      // We no longer show the window immediately here.
+      // We let the frontend call window.show() once the Svelte splash screen is ready to prevent OS white flash.
 
       tauri::async_runtime::spawn(async move {
           // Trigger initial connection
