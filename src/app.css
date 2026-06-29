@@ -29,3 +29,8 @@ body {
 ::view-transition-new(root) {
   z-index: 2147483646;
 }
+
+/* Disable ALL CSS transitions during View Transition */
+.theme-transitioning * {
+  transition: none !important;
+}

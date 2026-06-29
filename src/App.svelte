@@ -48,15 +48,21 @@
   let theme: 'system' | 'light' | 'dark' = $state('system');
   let activeTheme: 'light' | 'dark' = $state('light');
 
-  function updateThemeClass(event?: MouseEvent | Event) {
-    const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  async function updateThemeClass(event?: MouseEvent | Event, nextThemeOverride?: 'system' | 'light' | 'dark') {
+    const targetTheme = nextThemeOverride || theme;
+    const isDark = targetTheme === 'dark' || (targetTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     const nextActiveTheme = isDark ? 'dark' : 'light';
     
     // Fallback if no change or no View Transitions API
     if (activeTheme === nextActiveTheme || !document.startViewTransition) {
+      theme = targetTheme;
       activeTheme = nextActiveTheme;
       if (isDark) document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
+      if (store) {
+        store.set('theme', theme);
+        store.save();
+      }
       return;
     }
 
@@ -73,10 +79,14 @@
       Math.max(y, window.innerHeight - y)
     );
 
-    const transition = document.startViewTransition(() => {
+    document.documentElement.classList.add('theme-transitioning');
+
+    const transition = document.startViewTransition(async () => {
+      theme = targetTheme;
       activeTheme = nextActiveTheme;
       if (isDark) document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
+      await tick();
     });
 
     transition.ready.then(() => {
@@ -88,12 +98,21 @@
           ]
         },
         {
-          duration: 500,
+          duration: 400,
           easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
           pseudoElement: '::view-transition-new(root)'
         }
       );
     });
+
+    transition.finished.then(() => {
+      document.documentElement.classList.remove('theme-transitioning');
+    });
+
+    if (store) {
+      store.set('theme', theme);
+      store.save();
+    }
   }
 
   $effect(() => {
@@ -908,12 +927,7 @@
           title={theme === 'system' ? t('settings.themeSystem') : theme === 'dark' ? t('settings.themeDark') : t('settings.themeLight')}
           onclick={(e) => {
             const nextTheme = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
-            theme = nextTheme;
-            updateThemeClass(e);
-            if (store) {
-              store.set('theme', theme);
-              store.save();
-            }
+            updateThemeClass(e, nextTheme);
           }}
           class="p-2 rounded-md transition-colors text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-gray-700"
         >
@@ -1153,8 +1167,11 @@
                     <label for="settings-theme" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('settings.theme')}</label>
                     <select 
                       id="settings-theme"
-                      bind:value={theme}
-                      onchange={updateThemeClass}
+                      value={theme}
+                      onchange={(e) => {
+                        const target = e.target as HTMLSelectElement;
+                        updateThemeClass(e, target.value as 'system' | 'light' | 'dark');
+                      }}
                       class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm shadow-sm focus:outline-none focus:border-black dark:focus:border-gray-500 focus:ring-1 focus:ring-black dark:focus:ring-gray-500 transition-colors text-black dark:text-gray-100"
                     >
                       <option value="system">{t('settings.themeSystem')}</option>
