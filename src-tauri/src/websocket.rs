@@ -141,7 +141,8 @@ pub async fn start_websocket_loop(app: AppHandle) {
                                                         let title = gotify_msg.title.clone().unwrap_or_else(|| "GotiDesk".to_string());
                                                         let body = gotify_msg.message.clone();
                                                         
-                                                        std::thread::spawn(move || {
+                                                        let app_for_main = app_clone.clone();
+                                                        let _ = app_for_main.run_on_main_thread(move || {
                                                             let _ = Toast::new(Toast::POWERSHELL_APP_ID)
                                                                 .title(&title)
                                                                 .text1(&body)

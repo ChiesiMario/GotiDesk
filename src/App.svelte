@@ -374,7 +374,7 @@
           errorMessage = "Invalid Message ID";
           currentView = 'detail';
         }
-        await markReady();
+        isReady = true;
         return; // Skip normal main view init
       }
 
