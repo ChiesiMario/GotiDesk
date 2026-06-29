@@ -290,13 +290,27 @@ pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String>
         tauri::WebviewUrl::App(url.into()),
     )
     .title("Message Detail")
-    .inner_size(800.0, 600.0)
+    .inner_size(400.0, 500.0)
     .min_inner_size(400.0, 500.0)
     .max_inner_size(1200.0, 900.0)
     .maximizable(false)
-    .center();
+    .visible(false);
     
-    builder.build().map_err(|e| e.to_string())?;
+    let window = builder.build().map_err(|e| e.to_string())?;
+
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let monitor_size = monitor.size();
+        let scale_factor = monitor.scale_factor();
+        if let Ok(win_size) = window.outer_size() {
+            let margin = (24.0 * scale_factor) as i32;
+            let x = monitor_size.width as i32 - win_size.width as i32 - margin;
+            let y = ((monitor_size.height as i32) - (win_size.height as i32)) / 2;
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+        }
+    }
+    
+    let _ = window.show();
+    let _ = window.set_focus();
     
     Ok(())
 }
