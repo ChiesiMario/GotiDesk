@@ -48,14 +48,52 @@
   let theme: 'system' | 'light' | 'dark' = $state('system');
   let activeTheme: 'light' | 'dark' = $state('light');
 
-  function updateThemeClass() {
+  function updateThemeClass(event?: MouseEvent | Event) {
     const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    activeTheme = isDark ? 'dark' : 'light';
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    const nextActiveTheme = isDark ? 'dark' : 'light';
+    
+    // Fallback if no change or no View Transitions API
+    if (activeTheme === nextActiveTheme || !document.startViewTransition) {
+      activeTheme = nextActiveTheme;
+      if (isDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+      return;
     }
+
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    
+    if (event && 'clientX' in event && typeof event.clientX === 'number') {
+      x = event.clientX;
+      y = event.clientY;
+    }
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    const transition = document.startViewTransition(() => {
+      activeTheme = nextActiveTheme;
+      if (isDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    });
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`
+          ]
+        },
+        {
+          duration: 500,
+          easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          pseudoElement: '::view-transition-new(root)'
+        }
+      );
+    });
   }
 
   $effect(() => {
@@ -868,10 +906,10 @@
       <div class="flex items-center space-x-3">
         <button
           title={theme === 'system' ? t('settings.themeSystem') : theme === 'dark' ? t('settings.themeDark') : t('settings.themeLight')}
-          onclick={() => {
+          onclick={(e) => {
             const nextTheme = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
             theme = nextTheme;
-            updateThemeClass();
+            updateThemeClass(e);
             if (store) {
               store.set('theme', theme);
               store.save();
