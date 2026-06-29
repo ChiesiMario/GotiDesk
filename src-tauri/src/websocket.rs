@@ -275,7 +275,7 @@ pub async fn get_message_by_id(id: u64) -> Result<GotifyMessage, String> {
 }
 
 #[tauri::command]
-pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String> {
+pub async fn create_detail_window(app: AppHandle, id: u64, target_height: f64) -> Result<(), String> {
     let window_label = format!("detail_{}", id);
     let url = format!("/?view=detail&id={}", id);
     
@@ -290,7 +290,7 @@ pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String>
         tauri::WebviewUrl::App(url.into()),
     )
     .title("Message Detail")
-    .inner_size(400.0, 500.0)
+    .inner_size(400.0, target_height)
     .min_inner_size(400.0, 100.0)
     .maximizable(false)
     .decorations(false)
@@ -302,12 +302,13 @@ pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String>
     if let Ok(Some(monitor)) = window.current_monitor() {
         let monitor_size = monitor.size();
         let scale_factor = monitor.scale_factor();
-        if let Ok(win_size) = window.outer_size() {
-            let margin = (24.0 * scale_factor) as i32;
-            let x = monitor_size.width as i32 - win_size.width as i32 - margin;
-            let y = ((monitor_size.height as i32) - (win_size.height as i32)) / 2;
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
-        }
+        let margin = (24.0 * scale_factor) as i32;
+        let physical_width = (400.0 * scale_factor) as i32;
+        let physical_height = (target_height * scale_factor) as i32;
+        
+        let x = monitor_size.width as i32 - physical_width - margin;
+        let y = ((monitor_size.height as i32) - physical_height) / 2;
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
     }
     
     // We do NOT show the window here. We let the frontend call show_window

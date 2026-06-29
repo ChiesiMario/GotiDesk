@@ -405,7 +405,32 @@
     listen<number>('open-detail', (event) => {
       const msgId = event.payload;
       if (msgId) {
-        invoke('create_detail_window', { id: msgId }).catch(e => {
+        let targetHeight = 500;
+        const msg = messages.find(m => m.id === msgId);
+        if (msg) {
+          // Offscreen measurement
+          const measurer = document.createElement('div');
+          measurer.style.position = 'fixed';
+          measurer.style.top = '-9999px';
+          measurer.style.left = '-9999px';
+          measurer.style.width = '400px';
+          measurer.style.padding = '32px'; // p-8 vertical
+          measurer.className = 'text-base leading-relaxed markdown-content break-words';
+          measurer.innerHTML = renderMarkdown(formatText(msg.message));
+          document.body.appendChild(measurer);
+          
+          let calculatedHeight = measurer.scrollHeight + 60 + 64;
+          const MAX_HEIGHT = Math.min(900, window.screen.availHeight - 80);
+          const MIN_HEIGHT = Math.min(500, window.screen.availHeight - 80);
+          
+          if (calculatedHeight > MAX_HEIGHT) calculatedHeight = MAX_HEIGHT;
+          if (calculatedHeight < MIN_HEIGHT) calculatedHeight = MIN_HEIGHT;
+          
+          targetHeight = calculatedHeight;
+          document.body.removeChild(measurer);
+        }
+        
+        invoke('create_detail_window', { id: msgId, targetHeight }).catch(e => {
             console.error("Failed to open window:", e);
         });
       }
@@ -676,26 +701,12 @@
     try {
       const contentEl = document.getElementById('detail-content-inner');
       if (contentEl) {
-        const contentHeight = contentEl.scrollHeight;
-        const headerHeight = 60; // Approximate header height
-        const verticalPadding = 64; // p-8 is 32px top and bottom = 64px
-        let targetHeight = contentHeight + headerHeight + verticalPadding;
-        
-        const MAX_HEIGHT = Math.min(900, window.screen.availHeight - 80);
-        const MIN_HEIGHT = Math.min(500, window.screen.availHeight - 80);
-        
-        if (targetHeight > MAX_HEIGHT) targetHeight = MAX_HEIGHT;
-        if (targetHeight < MIN_HEIGHT) targetHeight = MIN_HEIGHT;
-        
-        await invoke('resize_window', { label: 'detail_' + detailMessageId, width: 400, height: targetHeight });
-        
-        // Wait 100ms for Windows DWM to apply the new geometry silently
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        // Size is already perfect because we calculated it off-screen in the main window!
+        // Just show it.
         await invoke('show_window', { label: 'detail_' + detailMessageId });
       }
     } catch (e) {
-      console.warn("Failed to resize window", e);
+      console.warn("Failed to show window", e);
     }
   }
 
