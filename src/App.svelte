@@ -201,10 +201,22 @@
   let errorMessage = $state('');
 
   // States for detail view
-  let detailMessageId: number | null = $state(null);
   let detailMessage: GotifyMessage | null = $state(null);
-  
+  let detailMessageId: number | null = $state(null);
   let confirmDeleteId: number | null = $state(null);
+  let listCopiedId: number | null = $state(null);
+  let deleteAllConfirmState = $state(0);
+  let isDeletingAll = $state(false);
+  let isReady = $state(false);
+  
+  const appStartTime = Date.now();
+  async function markReady() {
+    const elapsed = Date.now() - appStartTime;
+    if (elapsed < 2000) {
+      await new Promise(resolve => setTimeout(resolve, 2000 - elapsed));
+    }
+    isReady = true;
+  }
 
   function extractVerificationCode(text: string | null | undefined): string | null {
     if (!text) return null;
@@ -215,7 +227,6 @@
 
   let verificationCode = $derived(detailMessage ? (extractVerificationCode((detailMessage as GotifyMessage).title) || extractVerificationCode((detailMessage as GotifyMessage).message)) : null);
   let copySuccess = $state(false);
-  let listCopiedId: number | null = $state(null);
 
   async function copyFromList(id: number, code: string) {
     try {
@@ -238,9 +249,6 @@
       }
     }
   }
-  let deleteAllConfirmState = $state(0);
-  let isDeletingAll = $state(false);
-  let isReady = $state(false);
   
   // Custom Window State
   let isWindowMaximized = $state(false);
@@ -355,11 +363,12 @@
               adjustWindowSize();
             })
             .catch(e => errorMessage = String(e));
-        } else {
+        }
+        if (!msgIdStr) {
           errorMessage = "Invalid Message ID";
           currentView = 'detail';
         }
-        isReady = true;
+        await markReady();
         return; // Skip normal main view init
       }
 
@@ -390,11 +399,11 @@
       } else {
         currentView = 'login';
       }
-      isReady = true;
-    }).catch(e => {
+      await markReady();
+    }).catch(async (e) => {
       console.warn("載入設定失敗:", e);
       currentView = 'login';
-      isReady = true;
+      await markReady();
     });
 
     let unlistenMessage: (() => void) | undefined;
