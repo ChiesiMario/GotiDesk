@@ -202,28 +202,6 @@
       systemFonts = fonts;
     }).catch(e => console.error("Failed to load system fonts", e));
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const viewParam = urlParams.get('view');
-    
-    if (viewParam === 'detail') {
-      const msgIdStr = urlParams.get('id');
-      if (msgIdStr) {
-        detailMessageId = parseInt(msgIdStr);
-        currentView = 'detail';
-        invoke<GotifyMessage>('get_message_by_id', { id: detailMessageId })
-          .then(async msg => {
-            detailMessage = msg;
-            await tick();
-            adjustWindowSize();
-          })
-          .catch(e => errorMessage = String(e));
-      } else {
-        errorMessage = "Invalid Message ID";
-        currentView = 'detail';
-      }
-      return; // Skip normal main view init
-    }
-
     // Main window initialization
     load('settings.json').then(async s => {
       store = s;
@@ -237,6 +215,55 @@
       const savedLanguage = await store.get('language');
       const savedRecentServers = await store.get('recent_servers');
       const savedAutostartInit = await store.get('autostart_init');
+
+      if (savedLanguage) {
+        language = savedLanguage as LanguageCode;
+      } else {
+        language = getSystemLanguage();
+      }
+
+      if (savedDateFormat) {
+        dateFormat = savedDateFormat as string;
+      }
+      if (savedFontPrimary !== null) fontPrimary = savedFontPrimary as string;
+      if (savedFontFallback !== null) fontFallback = savedFontFallback as string;
+      if (savedPangu !== null) {
+        enablePangu = savedPangu as boolean;
+        draftEnablePangu = savedPangu as boolean;
+      }
+      if (savedPushSettings) {
+        pushSettings = savedPushSettings as PushSettings;
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam === 'detail') {
+        if (savedUrl && savedToken) {
+          url = savedUrl as string;
+          token = savedToken as string;
+          try {
+            apps = await invoke('fetch_apps', { url, token });
+          } catch (e) { console.error("Failed to fetch apps", e); }
+        }
+        
+        const msgIdStr = urlParams.get('id');
+        if (msgIdStr) {
+          detailMessageId = parseInt(msgIdStr);
+          currentView = 'detail';
+          invoke<GotifyMessage>('get_message_by_id', { id: detailMessageId })
+            .then(async msg => {
+              detailMessage = msg;
+              await tick();
+              adjustWindowSize();
+            })
+            .catch(e => errorMessage = String(e));
+        } else {
+          errorMessage = "Invalid Message ID";
+          currentView = 'detail';
+        }
+        return; // Skip normal main view init
+      }
 
       if (!savedAutostartInit) {
         try {
@@ -253,27 +280,8 @@
         } catch (e) {}
       }
       
-      if (savedLanguage) {
-        language = savedLanguage as LanguageCode;
-      } else {
-        language = getSystemLanguage();
-      }
-
       if (savedRecentServers && Array.isArray(savedRecentServers)) {
         recentServers = savedRecentServers;
-      }
-      
-      if (savedDateFormat) {
-        dateFormat = savedDateFormat as string;
-      }
-      if (savedFontPrimary !== null) fontPrimary = savedFontPrimary as string;
-      if (savedFontFallback !== null) fontFallback = savedFontFallback as string;
-      if (savedPangu !== null) {
-        enablePangu = savedPangu as boolean;
-        draftEnablePangu = savedPangu as boolean;
-      }
-      if (savedPushSettings) {
-        pushSettings = savedPushSettings as PushSettings;
       }
       
       if (savedUrl && savedToken) {
@@ -610,14 +618,6 @@
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
       <h1 class="text-sm font-semibold tracking-tight text-gray-400 uppercase">{t('detail.title')}</h1>
       <div class="flex items-center space-x-3">
-        {#if detailMessage}
-          <button 
-            class={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${confirmDeleteId === detailMessage?.id ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-            onclick={() => detailMessage && deleteMessage(detailMessage.id)}
-          >
-            {confirmDeleteId === detailMessage.id ? t('common.confirmDelete') : t('common.delete')}
-          </button>
-        {/if}
       </div>
     </header>
     <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -627,20 +627,23 @@
         </div>
       {:else if detailMessage}
         <div id="detail-content-inner" class="max-w-2xl mx-auto w-full space-y-6">
-          <div>
-            <div class="flex items-center space-x-2 mb-3">
-              <div class="w-3 h-3 flex items-center justify-center group/dot cursor-default" title={`Priority: ${detailMessage.priority}`}>
+          <div class="mb-4">
+            <div class="flex items-start space-x-3">
+              <div class="mt-2.5 w-3 h-3 flex-shrink-0 flex items-center justify-center group/dot cursor-default" title={`Priority: ${detailMessage.priority}`}>
                 <div class={`w-2.5 h-2.5 rounded-full ${getPriorityColor(detailMessage.priority)} group-hover/dot:hidden transition-all`}></div>
                 <span class={`hidden group-hover/dot:block text-xs font-bold leading-none ${getPriorityTextColor(detailMessage.priority)}`}>{detailMessage.priority}</span>
               </div>
-              <div class="group/time cursor-default text-xs text-gray-400 tracking-tighter">
-                <span class="group-hover/time:hidden">{getRelativeTime(detailMessage.date)}</span>
-                <span class="hidden group-hover/time:block">{formatDate(detailMessage.date)}</span>
+              <div class="flex-1">
+                <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
+                  {formatText(detailMessage.title || t('common.notification'))}
+                </h1>
+                {#if detailMessage.appid}
+                  <div class="mt-2 text-sm text-gray-500 font-medium">
+                    {apps.find(a => a.id === detailMessage!.appid)?.name || `App ${detailMessage.appid}`}
+                  </div>
+                {/if}
               </div>
             </div>
-            <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
-              {formatText(detailMessage.title || t('common.notification'))}
-            </h1>
           </div>
 
           {#if verificationCode}
@@ -673,6 +676,13 @@
           
           <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words markdown-content">
             {@html renderMarkdown(formatText(detailMessage.message))}
+          </div>
+          
+          <div class="mt-6 flex justify-end">
+            <div class="group/time cursor-default text-xs text-gray-400 tracking-tighter text-right">
+              <span class="group-hover/time:hidden">{getRelativeTime(detailMessage.date)}</span>
+              <span class="hidden group-hover/time:block">{formatDate(detailMessage.date)}</span>
+            </div>
           </div>
         </div>
       {:else}
