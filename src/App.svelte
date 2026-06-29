@@ -1092,7 +1092,7 @@
                     <select 
                       id="settings-language"
                       bind:value={language}
-                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm shadow-sm focus:outline-none focus:border-black dark:focus:border-gray-500 focus:ring-1 focus:ring-black dark:focus:ring-gray-500 transition-colors text-black dark:text-gray-100"
                     >
                       <option value="en">English</option>
                       <option value="zh-TW">繁體中文</option>
@@ -1106,7 +1106,7 @@
                       id="settings-theme"
                       bind:value={theme}
                       onchange={updateThemeClass}
-                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm shadow-sm focus:outline-none focus:border-black dark:focus:border-gray-500 focus:ring-1 focus:ring-black dark:focus:ring-gray-500 transition-colors text-black dark:text-gray-100"
                     >
                       <option value="system">{t('settings.themeSystem')}</option>
                       <option value="light">{t('settings.themeLight')}</option>
@@ -1119,7 +1119,7 @@
                     <select 
                       id="settings-dateformat"
                       bind:value={dateFormat}
-                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-sm shadow-sm focus:outline-none focus:border-black dark:focus:border-gray-500 focus:ring-1 focus:ring-black dark:focus:ring-gray-500 transition-colors text-black dark:text-gray-100"
                     >
                       <option value="system">{t('format.systemDefault')}</option>
                       <option value="en-US">{t('format.usEnglish')}</option>
@@ -1180,7 +1180,7 @@
                   <button 
                     type="submit" 
                     disabled={isSaving}
-                    class="w-full h-9 bg-black text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    class="w-full h-9 bg-black dark:bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-gray-800 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
                     {#if isSaving}
                       <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
