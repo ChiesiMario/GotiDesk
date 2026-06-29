@@ -884,7 +884,7 @@
         </button>
         <button 
           onclick={logout}
-          class="text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-md transition-colors"
+          class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-1.5 rounded-md transition-colors"
         >
           {t('common.logout')}
         </button>
@@ -964,7 +964,7 @@
 
     <div class="flex flex-1 overflow-hidden relative">
       <!-- Sidebar -->
-      <aside class={`border-r border-gray-200 dark:border-gray-700 bg-[#FAFAFA] flex-col overflow-y-auto custom-scrollbar shrink-0 ${mobileView === 'master' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:w-fit sm:min-w-[200px] sm:max-w-[320px] sm:static`}>
+      <aside class={`border-r border-gray-200 dark:border-gray-800 bg-[#FAFAFA] dark:bg-gray-900 flex-col overflow-y-auto custom-scrollbar shrink-0 ${mobileView === 'master' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:w-fit sm:min-w-[200px] sm:max-w-[320px] sm:static`}>
         {#if showSettings}
           <div class="p-4">
             <button 
@@ -996,7 +996,7 @@
               <div class="relative group w-full">
                 <button 
                   onclick={() => { selectedAppId = null; mobileView = 'detail'; searchQuery = ''; }}
-                  class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100'}`}
+                  class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black dark:bg-gray-700 text-white font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-black dark:hover:text-gray-200'}`}
                 >
                   <span class="block pr-6 truncate">{t('sidebar.allMessages')}</span>
                 </button>
@@ -1026,7 +1026,7 @@
                 <div class="relative group w-full">
                   <button 
                     onclick={() => { selectedAppId = app.id; mobileView = 'detail'; searchQuery = ''; }}
-                    class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === app.id ? 'bg-black text-white font-medium' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100'}`}
+                    class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === app.id ? 'bg-black dark:bg-gray-700 text-white font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-black dark:hover:text-gray-200'}`}
                   >
                     <span class="block pr-6 truncate">{app.name}</span>
                   </button>
@@ -1283,7 +1283,7 @@
                   </div>
                   <div class="flex items-center space-x-3 ml-4">
                     <button 
-                      class={`px-2 py-1 rounded text-[10px] font-medium transition-all ${confirmDeleteId === msg.id ? 'bg-red-500 text-white hover:bg-red-600 opacity-100' : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100'}`}
+                      class={`px-2 py-1 rounded text-[10px] font-medium transition-all ${confirmDeleteId === msg.id ? 'bg-red-500 text-white hover:bg-red-600 opacity-100' : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 opacity-0 group-hover:opacity-100'}`}
                       onclick={() => deleteMessage(msg.id)}
                     >
                       {confirmDeleteId === msg.id ? t('common.confirmDelete') : t('common.delete')}
@@ -1297,7 +1297,7 @@
                   <div class="flex items-center space-x-2">
                     {#if selectedAppId === null && msg.appid !== null}
                       <button 
-                        class="text-[10px] font-medium px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-100 text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100 rounded transition-colors"
+                        class="text-[10px] font-medium px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-black dark:hover:text-white rounded transition-colors"
                         onclick={(e) => { e.stopPropagation(); selectedAppId = msg.appid; mobileView = 'detail'; }}
                       >
                         {apps.find(a => a.id === msg.appid)?.name || `App ID: ${msg.appid}`}
@@ -1305,7 +1305,7 @@
                     {/if}
                     {#if code}
                       <button 
-                        class={`text-[10px] font-medium px-2 py-1 rounded transition-colors flex items-center space-x-1 border ${listCopiedId === msg.id ? 'bg-green-50 text-green-600 border-green-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
+                        class={`text-[10px] font-medium px-2 py-1 rounded transition-colors flex items-center space-x-1 border ${listCopiedId === msg.id ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50'}`}
                         onclick={(e) => { e.stopPropagation(); copyFromList(msg.id, code); }}
                         title="Copy Verification Code"
                       >
@@ -1372,6 +1372,9 @@
     color: #2563eb;
     text-decoration: underline;
   }
+  :global(.dark .markdown-content a) {
+    color: #60a5fa;
+  }
   :global(.markdown-content ul) {
     list-style-type: disc;
     padding-left: 1.5em;
@@ -1388,6 +1391,10 @@
     color: #6b7280;
     margin-bottom: 0.5em;
   }
+  :global(.dark .markdown-content blockquote) {
+    border-left-color: #374151;
+    color: #9ca3af;
+  }
   :global(.markdown-content code) {
     background-color: #f3f4f6;
     padding: 0.1em 0.3em;
@@ -1395,12 +1402,19 @@
     font-size: 0.9em;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
+  :global(.dark .markdown-content code) {
+    background-color: #1f2937;
+    color: #d1d5db;
+  }
   :global(.markdown-content pre) {
     background-color: #f3f4f6;
     padding: 0.75em;
     border-radius: 0.375em;
     overflow-x: auto;
     margin-bottom: 0.5em;
+  }
+  :global(.dark .markdown-content pre) {
+    background-color: #1f2937;
   }
   :global(.markdown-content pre code) {
     background-color: transparent;
