@@ -13,6 +13,31 @@ use url::Url;
 use lazy_static::lazy_static;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppPushSetting {
+    pub enabled: bool,
+    pub min_priority: Option<u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PushSettings {
+    pub global_enabled: bool,
+    pub receive_all_apps: bool,
+    pub global_min_priority: u32,
+    pub apps: HashMap<String, AppPushSetting>,
+}
+
+impl Default for PushSettings {
+    fn default() -> Self {
+        Self {
+            global_enabled: true,
+            receive_all_apps: true,
+            global_min_priority: 0,
+            apps: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GotifyMessage {
     pub id: u64,
     pub title: Option<String>,
@@ -77,24 +102,55 @@ pub async fn start_websocket_loop(app: AppHandle) {
                                                 #[cfg(target_os = "windows")]
                                                 {
                                                     use tauri_winrt_notification::{Duration, Sound, Toast};
-                                                    let msg_id = gotify_msg.id;
-                                                    let app_clone = app.clone();
                                                     
-                                                    let title = gotify_msg.title.clone().unwrap_or_else(|| "GotiDesk".to_string());
-                                                    let body = gotify_msg.message.clone();
+                                                    let push_settings = if let Ok(store) = app.store("settings.json") {
+                                                        if let Some(val) = store.get("push_settings") {
+                                                            serde_json::from_value::<PushSettings>(val.clone()).unwrap_or_else(|_| PushSettings::default())
+                                                        } else {
+                                                            PushSettings::default()
+                                                        }
+                                                    } else {
+                                                        PushSettings::default()
+                                                    };
                                                     
-                                                    std::thread::spawn(move || {
-                                                        let _ = Toast::new(Toast::POWERSHELL_APP_ID)
-                                                            .title(&title)
-                                                            .text1(&body)
-                                                            .sound(Some(Sound::SMS))
-                                                            .duration(Duration::Short)
-                                                            .on_activated(move |_| {
-                                                                let _ = app_clone.emit("open-detail", msg_id);
-                                                                Ok(())
-                                                            })
-                                                            .show();
-                                                    });
+                                                    let mut should_push = false;
+                                                    
+                                                    if push_settings.global_enabled {
+                                                        if push_settings.receive_all_apps {
+                                                            should_push = gotify_msg.priority >= push_settings.global_min_priority;
+                                                        } else {
+                                                            if let Some(appid) = gotify_msg.appid {
+                                                                let appid_str = appid.to_string();
+                                                                if let Some(app_setting) = push_settings.apps.get(&appid_str) {
+                                                                    let prio = app_setting.min_priority.unwrap_or(push_settings.global_min_priority);
+                                                                    should_push = app_setting.enabled && gotify_msg.priority >= prio;
+                                                                }
+                                                            } else {
+                                                                should_push = gotify_msg.priority >= push_settings.global_min_priority;
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    if should_push {
+                                                        let msg_id = gotify_msg.id;
+                                                        let app_clone = app.clone();
+                                                        
+                                                        let title = gotify_msg.title.clone().unwrap_or_else(|| "GotiDesk".to_string());
+                                                        let body = gotify_msg.message.clone();
+                                                        
+                                                        std::thread::spawn(move || {
+                                                            let _ = Toast::new(Toast::POWERSHELL_APP_ID)
+                                                                .title(&title)
+                                                                .text1(&body)
+                                                                .sound(Some(Sound::SMS))
+                                                                .duration(Duration::Short)
+                                                                .on_activated(move |_| {
+                                                                    let _ = app_clone.emit("open-detail", msg_id);
+                                                                    Ok(())
+                                                                })
+                                                                .show();
+                                                        });
+                                                    }
                                                 }
                                             }
                                         }
@@ -257,5 +313,25 @@ pub async fn show_window(app: AppHandle, label: String) -> Result<(), String> {
         Ok(())
     } else {
         Err("Window not found".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn delete_message(url: String, token: String, id: u64) -> Result<(), String> {
+    let api_url = format!("{}/message/{}", url.trim_end_matches('/'), id);
+    
+    let client = reqwest::Client::new();
+    let response = client.delete(&api_url)
+        .header("X-Gotify-Key", token)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+        
+    if response.status().is_success() {
+        let mut cache = MESSAGE_CACHE.lock().await;
+        cache.remove(&id);
+        Ok(())
+    } else {
+        Err(format!("Server returned error: {}", response.status()))
     }
 }

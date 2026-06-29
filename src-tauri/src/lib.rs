@@ -22,7 +22,8 @@ pub fn run() {
         websocket::get_message_by_id,
         websocket::create_detail_window,
         websocket::resize_window,
-        websocket::show_window
+        websocket::show_window,
+        websocket::delete_message
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
