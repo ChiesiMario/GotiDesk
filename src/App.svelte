@@ -681,6 +681,10 @@
         if (targetHeight < MIN_HEIGHT) targetHeight = MIN_HEIGHT;
         
         await invoke('resize_window', { label: 'detail_' + detailMessageId, width: 400, height: targetHeight });
+        
+        // Wait 100ms for Windows DWM to apply the new geometry silently
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         await invoke('show_window', { label: 'detail_' + detailMessageId });
       }
     } catch (e) {
