@@ -628,21 +628,19 @@
       {:else if detailMessage}
         <div id="detail-content-inner" class="max-w-2xl mx-auto w-full space-y-6">
           <div class="mb-4">
-            <div class="flex items-start space-x-3">
-              <div class="mt-2.5 w-3 h-3 flex-shrink-0 flex items-center justify-center group/dot cursor-default" title={`Priority: ${detailMessage.priority}`}>
-                <div class={`w-2.5 h-2.5 rounded-full ${getPriorityColor(detailMessage.priority)} group-hover/dot:hidden transition-all`}></div>
-                <span class={`hidden group-hover/dot:block text-xs font-bold leading-none ${getPriorityTextColor(detailMessage.priority)}`}>{detailMessage.priority}</span>
-              </div>
-              <div class="flex-1">
-                <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
-                  {formatText(detailMessage.title || t('common.notification'))}
-                </h1>
-                {#if detailMessage.appid}
-                  <div class="mt-2 text-sm text-gray-500 font-medium">
-                    {apps.find(a => a.id === detailMessage!.appid)?.name || `App ${detailMessage.appid}`}
-                  </div>
-                {/if}
-              </div>
+            <div class="flex-1">
+              <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
+                <div class="inline-flex items-center justify-center w-4 h-4 mr-2 align-middle group/dot cursor-default" title={`Priority: ${detailMessage.priority}`}>
+                  <div class={`w-3 h-3 rounded-full ${getPriorityColor(detailMessage.priority)} group-hover/dot:hidden transition-all`}></div>
+                  <span class={`hidden group-hover/dot:block text-xs font-bold leading-none ${getPriorityTextColor(detailMessage.priority)}`}>{detailMessage.priority}</span>
+                </div>
+                <span class="align-middle">{formatText(detailMessage.title || t('common.notification'))}</span>
+              </h1>
+              {#if detailMessage.appid}
+                <div class="mt-2 ml-6 text-sm text-gray-500 font-medium">
+                  {apps.find(a => a.id === detailMessage!.appid)?.name || `App ${detailMessage.appid}`}
+                </div>
+              {/if}
             </div>
           </div>
 
