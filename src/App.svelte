@@ -16,6 +16,7 @@
   import { Menu, MenuItem, PredefinedMenuItem, CheckMenuItem } from '@tauri-apps/api/menu';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import pangu from 'pangu';
+  import Logo from './components/Logo.svelte';
 
   interface GotifyMessage {
     id: number;
@@ -692,7 +693,7 @@
   });
 </script>
 
-<main class="h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased border border-gray-300 dark:border-gray-700">
+<main class="h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased">
   
   <!-- Custom Titlebar -->
   <div data-tauri-drag-region class="h-7 w-full flex items-center justify-end shrink-0 select-none [-webkit-app-region:drag]">
@@ -895,7 +896,7 @@
     <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 h-14 flex items-center justify-between shrink-0 z-20">
       <div class="flex items-center space-x-2">
         <div class="w-6 h-6 shrink-0 hidden sm:flex">
-          <img src="/logo.png" alt="GotiDesk Logo" class="w-full h-full object-contain rounded" />
+          <Logo className="w-full h-full" />
         </div>
         <h1 class="text-sm font-semibold tracking-tight text-black dark:text-gray-100 shrink-0 hidden sm:block">GotiDesk</h1>
         <div class="sm:ml-3 sm:pl-3 sm:border-l border-gray-200 dark:border-gray-700 flex items-center space-x-2 text-xs font-medium px-1 sm:px-2">
