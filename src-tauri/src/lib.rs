@@ -5,23 +5,15 @@ use tauri::{
     tray::TrayIconBuilder,
     Manager, WindowEvent,
 };
-use winreg::enums::*;
-use winreg::RegKey;
-
 #[tauri::command]
 fn get_system_fonts() -> Vec<String> {
+    use font_kit::source::SystemSource;
+    
     let mut fonts = Vec::new();
-    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    if let Ok(font_key) = hklm.open_subkey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts") {
-        for (name, _) in font_key.enum_values().filter_map(|v| v.ok()) {
-            let mut font_name = name;
-            // Clean up common suffixes
-            font_name = font_name.replace(" (TrueType)", "");
-            font_name = font_name.replace(" (OpenType)", "");
-            font_name = font_name.replace(" & ", " and ");
-            fonts.push(font_name);
-        }
+    if let Ok(families) = SystemSource::new().all_families() {
+        fonts = families;
     }
+    
     fonts.sort();
     fonts.dedup();
     fonts

@@ -10,6 +10,7 @@
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
   import FontSelect from './lib/FontSelect.svelte';
+  import { type LanguageCode, translations, getSystemLanguage } from './lib/i18n';
 
   interface GotifyMessage {
     id: number;
@@ -50,6 +51,8 @@
   let fontFallback = $state('');
   let systemFonts: string[] = $state([]);
   let activePopover: { id: string, top: number, left: number } | null = $state(null);
+  let language = $state<LanguageCode>('en');
+  let t = $derived((key: string) => translations[language][key] || key);
   let pushSettings = $state<PushSettings>({
     global_enabled: true,
     receive_all_apps: true,
@@ -68,6 +71,39 @@
   let detailMessage: GotifyMessage | null = $state(null);
   
   let confirmDeleteId: number | null = $state(null);
+
+  function extractVerificationCode(text: string | null | undefined): string | null {
+    if (!text) return null;
+    const regex = /(?:驗證碼|验证码|code|pin|otp|passcode)(?:\s*:|：|\s+)?\s*([A-Za-z0-9]{4,8})\b/i;
+    const match = text.match(regex);
+    return match ? match[1] : null;
+  }
+
+  let verificationCode = $derived(detailMessage ? (extractVerificationCode((detailMessage as GotifyMessage).title) || extractVerificationCode((detailMessage as GotifyMessage).message)) : null);
+  let copySuccess = $state(false);
+  let listCopiedId: number | null = $state(null);
+
+  async function copyFromList(id: number, code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      listCopiedId = id;
+      setTimeout(() => { if (listCopiedId === id) listCopiedId = null; }, 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  }
+
+  async function copyVerificationCode() {
+    if (verificationCode) {
+      try {
+        await navigator.clipboard.writeText(verificationCode);
+        copySuccess = true;
+        setTimeout(() => copySuccess = false, 2000);
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+      }
+    }
+  }
   let deleteAllConfirmState = $state(0);
   let isDeletingAll = $state(false);
   let showSettings = $state(false);
@@ -136,8 +172,15 @@
       const savedPushSettings = await store.get('push_settings');
       const savedFontPrimary = await store.get('font_primary');
       const savedFontFallback = await store.get('font_fallback');
+      const savedLanguage = await store.get('language');
       const savedRecentServers = await store.get('recent_servers');
       
+      if (savedLanguage) {
+        language = savedLanguage as LanguageCode;
+      } else {
+        language = getSystemLanguage();
+      }
+
       if (savedRecentServers && Array.isArray(savedRecentServers)) {
         recentServers = savedRecentServers;
       }
@@ -238,7 +281,7 @@
       }
     } catch (e) {
       console.error('Failed to delete message:', e);
-      errorMessage = `刪除失敗: ${e}`;
+      errorMessage = `${t('error.deleteFailed')} ${e}`;
       confirmDeleteId = null;
     }
   }
@@ -257,7 +300,7 @@
       new URL(processedUrl);
       return true;
     } catch (e) {
-      urlError = '無效的 URL 格式 (例如: https://gotify.example.com)';
+      urlError = t('form.invalidUrl');
       return false;
     }
   }
@@ -288,7 +331,7 @@
       loadData();
     } catch (e) {
       console.error('連線驗證失敗:', e);
-      errorMessage = '驗證失敗，請檢查 URL 與 Token 是否正確。詳細錯誤：' + e;
+      errorMessage = `${t('form.authFailed')} ${e}`;
     } finally {
       isSaving = false;
     }
@@ -333,6 +376,7 @@
       await store.set('date_format', dateFormat);
       await store.set('font_primary', fontPrimary);
       await store.set('font_fallback', fontFallback);
+      await store.set('language', language);
       await store.set('push_settings', pushSettings);
       await store.save();
       
@@ -340,7 +384,7 @@
       loadData();
     } catch (e) {
       console.error('儲存失敗:', e);
-      errorMessage = '儲存失敗：' + e;
+      errorMessage = `${t('error.saveFailed')} ${e}`;
     } finally {
       isSaving = false;
     }
@@ -354,6 +398,7 @@
         await store.delete('date_format');
         await store.delete('font_primary');
         await store.delete('font_fallback');
+        await store.delete('language');
         await store.delete('push_settings');
         await store.save();
       }
@@ -401,15 +446,15 @@
     }
     
     if (diffDay > 0) {
-      return `${diffDay} 天前`;
+      return `${diffDay} ${t('time.daysAgo')}`;
     }
     if (diffHour > 0) {
-      return `${diffHour} 小時前`;
+      return `${diffHour} ${t('time.hoursAgo')}`;
     }
     if (diffMin > 0) {
-      return `${diffMin} 分鐘前`;
+      return `${diffMin} ${t('time.minutesAgo')}`;
     }
-    return '剛剛';
+    return t('time.justNow');
   }
 
   function getPriorityColor(priority: number) {
@@ -467,14 +512,14 @@
     </div>
   {:else if currentView === 'detail'}
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-      <h1 class="text-sm font-semibold tracking-tight text-gray-400 uppercase">Message Details</h1>
+      <h1 class="text-sm font-semibold tracking-tight text-gray-400 uppercase">{t('detail.title')}</h1>
       <div class="flex items-center space-x-3">
         {#if detailMessage}
           <button 
-            class={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${confirmDeleteId === detailMessage.id ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-            onclick={() => deleteMessage(detailMessage.id)}
+            class={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${confirmDeleteId === detailMessage?.id ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            onclick={() => detailMessage && deleteMessage(detailMessage.id)}
           >
-            {confirmDeleteId === detailMessage.id ? '確認刪除' : '刪除'}
+            {confirmDeleteId === detailMessage.id ? t('common.confirmDelete') : t('common.delete')}
           </button>
         {/if}
       </div>
@@ -498,9 +543,35 @@
               </div>
             </div>
             <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
-              {detailMessage.title || 'Notification'}
+              {detailMessage.title || t('common.notification')}
             </h1>
           </div>
+
+          {#if verificationCode}
+            <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500 font-medium uppercase tracking-wider mb-0.5">{t('detail.verificationCode')}</div>
+                  <div class="font-mono text-lg font-bold text-black tracking-widest">{verificationCode}</div>
+                </div>
+              </div>
+              <button 
+                onclick={copyVerificationCode}
+                class={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${copySuccess ? 'bg-green-500 text-white' : 'bg-black text-white hover:bg-gray-800'}`}
+              >
+                {#if copySuccess}
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                  <span>{t('detail.copied')}</span>
+                {:else}
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                  <span>{t('detail.copyCode')}</span>
+                {/if}
+              </button>
+            </div>
+          {/if}
           
           <div class="h-px w-full bg-gray-200"></div>
           
@@ -518,8 +589,8 @@
     <div class="flex-1 flex flex-col p-6 relative z-10 items-center justify-center bg-white">
       <div class="w-full max-w-[360px]">
         <div class="text-center mb-10">
-          <h1 class="text-2xl font-bold tracking-tight text-black mb-2">Login to GotiDesk</h1>
-          <p class="text-gray-500 text-sm">Enter your Gotify server details below</p>
+          <h1 class="text-2xl font-bold tracking-tight text-black mb-2">{t('login.title')}</h1>
+          <p class="text-gray-500 text-sm">{t('login.subtitle')}</p>
         </div>
 
         {#if errorMessage && currentView === 'login'}
@@ -530,7 +601,7 @@
 
         <form class="space-y-4" onsubmit={(e) => { e.preventDefault(); saveSettings(); }}>
           <div class="space-y-1.5">
-            <label for="url" class="block text-sm font-medium text-black">Server URL</label>
+            <label for="url" class="block text-sm font-medium text-black">{t('login.serverUrl')}</label>
             <input 
               type="url" 
               id="url"
@@ -548,7 +619,7 @@
           </div>
 
           <div class="space-y-1.5">
-            <label for="token" class="block text-sm font-medium text-black">Client Token</label>
+            <label for="token" class="block text-sm font-medium text-black">{t('login.clientToken')}</label>
             <input 
               type="password" 
               id="token"
@@ -572,9 +643,9 @@
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Connecting...
+                {t('login.connecting')}
               {:else}
-                Login
+                {t('login.loginBtn')}
               {/if}
             </button>
           </div>
@@ -582,7 +653,7 @@
 
         {#if recentServers.length > 0}
           <div class="mt-8 pt-6 border-t border-gray-100">
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Recent Servers</h2>
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t('login.recentServers')}</h2>
             <div class="space-y-2">
               {#each recentServers as server}
                 <div 
@@ -659,7 +730,7 @@
           onclick={logout}
           class="text-xs font-medium text-gray-500 hover:text-black border border-gray-200 bg-white hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors"
         >
-          Logout
+          {t('common.logout')}
         </button>
       </div>
     </header>
@@ -671,14 +742,14 @@
       
       {#if activePopover.id === 'global'}
         <div class="fixed bg-white border border-gray-200 rounded-md shadow-lg z-50 p-4 text-gray-800 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Global Push Settings</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">{t('sidebar.globalNotifSettings')}</h3>
           <div class="space-y-4">
             <div class="flex items-center justify-between">
-              <label class="text-sm font-medium">Enable Push</label>
+              <label class="text-sm font-medium">{t('settings.enablePush')}</label>
               <input type="checkbox" bind:checked={pushSettings.global_enabled} onchange={savePushSettings} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
             </div>
             <div class="space-y-2">
-              <label class="block text-sm text-gray-600">Global Min Priority</label>
+              <label class="block text-sm text-gray-600">{t('settings.globalMinPriority')}</label>
               <input type="number" min="0" max="10" bind:value={pushSettings.global_min_priority} onchange={savePushSettings} class="w-full h-8 px-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-black" />
             </div>
           </div>
@@ -690,7 +761,7 @@
             <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 truncate">{app.name} Settings</h3>
             <div class="space-y-4">
               <div class="flex items-center justify-between">
-                <label class="text-sm font-medium">Enable Push</label>
+                <label class="text-sm font-medium">{t('settings.enablePush')}</label>
                 <input type="checkbox" 
                   checked={pushSettings.apps[app.id.toString()]?.enabled ?? true}
                   onchange={(e) => {
@@ -720,7 +791,7 @@
                       savePushSettings();
                     }}
                     class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
-                  <span>Set Custom Priority</span>
+                  <span>{t('settings.setCustomPriority')}</span>
                 </label>
                 {#if pushSettings.apps[app.id.toString()]?.min_priority !== null && pushSettings.apps[app.id.toString()]?.min_priority !== undefined}
                   <input type="number" min="0" max="10" 
@@ -747,28 +818,28 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
               </svg>
-              <span>Back to Messages</span>
+              <span>{t('common.back')}</span>
             </button>
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">Settings</h2>
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">{t('sidebar.settings')}</h2>
             <nav class="space-y-1">
               <a href="#settings-general" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
-                General
+                {t('settings.general')}
               </a>
               <a href="#settings-notifications" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
-                Notifications
+                {t('settings.notifications')}
               </a>
             </nav>
           </div>
         {:else}
           <div class="p-4">
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Applications</h2>
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t('sidebar.applications')}</h2>
             <nav class="space-y-1 relative">
               <div class="relative group w-full">
                 <button 
                   onclick={() => { selectedAppId = null; mobileView = 'detail'; }}
                   class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
                 >
-                  <span class="block pr-6 truncate">All Messages</span>
+                  <span class="block pr-6 truncate">{t('sidebar.allMessages')}</span>
                 </button>
                 <button 
                   onclick={(e) => { 
@@ -837,33 +908,46 @@
               <form onsubmit={(e) => { e.preventDefault(); saveSettingsInline(); }} class="space-y-12 max-w-md pb-10">
                 <!-- General Section -->
                 <div class="space-y-6">
-                  <h2 id="settings-general" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">General</h2>
+                  <h2 id="settings-general" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">{t('settings.general')}</h2>
                   
                   <div>
-                    <label for="settings-dateformat" class="block text-sm font-medium text-gray-700 mb-1.5">Date Format</label>
+                    <label for="settings-language" class="block text-sm font-medium text-gray-700 mb-1.5">{t('settings.language')}</label>
+                    <select 
+                      id="settings-language"
+                      bind:value={language}
+                      class="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                    >
+                      <option value="en">English</option>
+                      <option value="zh-TW">繁體中文</option>
+                      <option value="zh-CN">简体中文</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label for="settings-dateformat" class="block text-sm font-medium text-gray-700 mb-1.5">{t('settings.dateFormat')}</label>
                     <select 
                       id="settings-dateformat"
                       bind:value={dateFormat}
                       class="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
                     >
-                      <option value="system">System Default</option>
-                      <option value="en-US">US English (Oct 1, 14:30)</option>
-                      <option value="en-GB">UK English (1 Oct, 14:30)</option>
-                      <option value="zh-TW">Traditional Chinese (10月1日 14:30)</option>
-                      <option value="iso">ISO-8601 (2023-10-01 14:30)</option>
+                      <option value="system">{t('format.systemDefault')}</option>
+                      <option value="en-US">{t('format.usEnglish')}</option>
+                      <option value="en-GB">{t('format.ukEnglish')}</option>
+                      <option value="zh-TW">{t('format.traditionalChinese')}</option>
+                      <option value="iso">{t('format.iso8601')}</option>
                     </select>
                   </div>
 
                   <div class="space-y-4 pt-2">
                     <FontSelect 
-                      label="Primary Font (English)"
+                      label={t('settings.fontPrimary')}
                       bind:value={fontPrimary}
                       options={systemFonts}
                       placeholder="e.g., Segoe UI"
                     />
                     
                     <FontSelect 
-                      label="Fallback Font (Chinese)"
+                      label={t('settings.fontFallback')}
                       bind:value={fontFallback}
                       options={systemFonts}
                       placeholder="e.g., Microsoft YaHei"
@@ -873,11 +957,11 @@
 
                 <!-- Notifications Section -->
                 <div class="space-y-6">
-                  <h2 id="settings-notifications" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">Notifications</h2>
+                  <h2 id="settings-notifications" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">{t('settings.notifications')}</h2>
                   
                   <div class="space-y-5">
                     <div class="flex items-center justify-between">
-                      <label for="settings-global-push" class="block text-sm font-medium text-gray-700">Enable Push Notifications</label>
+                      <label for="settings-global-push" class="block text-sm font-medium text-gray-700">{t('settings.enablePush')}</label>
                       <input type="checkbox" id="settings-global-push" bind:checked={pushSettings.global_enabled} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
                     </div>
                   </div>
@@ -900,9 +984,9 @@
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Saving...
+                      {t('settings.saving')}
                     {:else}
-                      Save
+                      {t('settings.save')}
                     {/if}
                   </button>
                 </div>
@@ -922,7 +1006,7 @@
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
                 <h2 class="text-xl font-bold tracking-tight text-black">
-                  {selectedAppId === null ? 'All Messages' : apps.find(a => a.id === selectedAppId)?.name || 'Application'}
+                  {selectedAppId === null ? t('sidebar.allMessages') : apps.find(a => a.id === selectedAppId)?.name || 'Application'}
                 </h2>
               </div>
               
@@ -936,16 +1020,16 @@
                   onclick={handleDeleteAll}
                   disabled={isDeletingAll || filteredMessages.length === 0}
                 >
-                  {#if isDeletingAll}
+                    {#if isDeletingAll}
                     <span class="flex items-center">
                       <svg class="animate-spin -ml-1 mr-2 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Deleting...
+                      {t('master.deleting')}
                     </span>
                   {:else}
-                    {deleteAllConfirmState === 0 ? 'Delete All' : deleteAllConfirmState === 1 ? 'Confirm Delete' : 'Final Confirm'}
+                    {deleteAllConfirmState === 0 ? t('master.deleteAll') : deleteAllConfirmState === 1 ? t('common.confirmDelete') : t('master.finalConfirm')}
                   {/if}
                 </button>
               {/if}
@@ -961,17 +1045,18 @@
           {:else if errorMessage}
             <div class="bg-red-50 border border-red-200 text-red-600 rounded-md p-4 text-sm flex items-start justify-between">
               <span>{errorMessage}</span>
-              <button onclick={loadData} class="text-xs font-medium bg-white border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors ml-4">Retry</button>
+              <button onclick={loadData} class="text-xs font-medium bg-white border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors ml-4">{t('common.retry')}</button>
             </div>
           {:else if filteredMessages.length === 0}
             <div class="flex flex-col items-center justify-center h-40 text-gray-400 space-y-2">
               <svg class="w-6 h-6 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
               </svg>
-              <p class="text-sm">No messages yet.</p>
+              <p class="text-sm">{t('master.noMessages')}</p>
             </div>
           {:else}
             {#each filteredMessages as msg (msg.id)}
+              {@const code = extractVerificationCode(msg.title) || extractVerificationCode(msg.message)}
               <div class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all animate-slide-up group">
                 <div class="flex justify-between items-start mb-1.5">
                   <div class="flex flex-col space-y-1.5">
@@ -981,7 +1066,7 @@
                         <span class={`hidden group-hover/dot:block text-[11px] font-bold leading-none ${getPriorityTextColor(msg.priority)}`}>{msg.priority}</span>
                       </div>
                       <h3 class="font-semibold text-sm text-black tracking-tight leading-none">
-                        {msg.title || 'Notification'}
+                        {msg.title || t('common.notification')}
                       </h3>
                     </div>
                   </div>
@@ -990,7 +1075,7 @@
                       class={`px-2 py-1 rounded text-[10px] font-medium transition-all ${confirmDeleteId === msg.id ? 'bg-red-500 text-white hover:bg-red-600 opacity-100' : 'bg-gray-50 border border-gray-200 text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100'}`}
                       onclick={() => deleteMessage(msg.id)}
                     >
-                      {confirmDeleteId === msg.id ? '確認刪除' : '刪除'}
+                      {confirmDeleteId === msg.id ? t('common.confirmDelete') : t('common.delete')}
                     </button>
                   </div>
                 </div>
@@ -998,13 +1083,28 @@
                   {@html renderMarkdown(msg.message)}
                 </div>
                 <div class="mt-3 flex items-center justify-between">
-                  <div>
+                  <div class="flex items-center space-x-2">
                     {#if selectedAppId === null && msg.appid !== null}
                       <button 
                         class="text-[10px] font-medium px-2 py-1 bg-gray-50 border border-gray-100 text-gray-400 hover:bg-gray-100 hover:text-black rounded transition-colors"
                         onclick={(e) => { e.stopPropagation(); selectedAppId = msg.appid; mobileView = 'detail'; }}
                       >
                         {apps.find(a => a.id === msg.appid)?.name || `App ID: ${msg.appid}`}
+                      </button>
+                    {/if}
+                    {#if code}
+                      <button 
+                        class={`text-[10px] font-medium px-2 py-1 rounded transition-colors flex items-center space-x-1 border ${listCopiedId === msg.id ? 'bg-green-50 text-green-600 border-green-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
+                        onclick={(e) => { e.stopPropagation(); copyFromList(msg.id, code); }}
+                        title="Copy Verification Code"
+                      >
+                        {#if listCopiedId === msg.id}
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                          <span>{t('detail.copiedList')}</span>
+                        {:else}
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                          <span>{code}</span>
+                        {/if}
                       </button>
                     {/if}
                   </div>
