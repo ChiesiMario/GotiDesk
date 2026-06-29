@@ -672,7 +672,7 @@
           <div class="h-px w-full bg-gray-200"></div>
           
           <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words markdown-content">
-            {@html formatText(renderMarkdown(detailMessage.message))}
+            {@html renderMarkdown(formatText(detailMessage.message))}
           </div>
         </div>
       {:else}
@@ -1204,7 +1204,7 @@
                   </div>
                 </div>
                 <div class="text-sm text-gray-600 leading-relaxed markdown-content">
-                  {@html formatText(renderMarkdown(msg.message))}
+                  {@html renderMarkdown(formatText(msg.message))}
                 </div>
                 <div class="mt-3 flex items-center justify-between">
                   <div class="flex items-center space-x-2">
