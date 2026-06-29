@@ -240,6 +240,11 @@
   }
   let deleteAllConfirmState = $state(0);
   let isDeletingAll = $state(false);
+  let isReady = $state(false);
+  let detailReadyForDisplay = $state(false);
+  
+  // Custom Window State
+  let isWindowMaximized = $state(false);
   let showSettings = $state(false);
   let wsStatus = $state('disconnected');
   let justEnabledPush = $state(false);
@@ -352,6 +357,7 @@
           errorMessage = "Invalid Message ID";
           currentView = 'detail';
         }
+        isReady = true;
         return; // Skip normal main view init
       }
 
@@ -382,9 +388,11 @@
       } else {
         currentView = 'login';
       }
+      isReady = true;
     }).catch(e => {
       console.warn("載入設定失敗:", e);
       currentView = 'login';
+      isReady = true;
     });
 
     let unlistenMessage: (() => void) | undefined;
@@ -686,6 +694,10 @@
         await new Promise(resolve => setTimeout(resolve, 100));
         
         await invoke('show_window', { label: 'detail_' + detailMessageId });
+        
+        // Final tiny delay to ensure the OS has actually painted the window bounds
+        await new Promise(resolve => setTimeout(resolve, 50));
+        detailReadyForDisplay = true;
       }
     } catch (e) {
       console.warn("Failed to resize window", e);
@@ -699,7 +711,13 @@
   });
 </script>
 
-<main class="h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased">
+{#if !isReady}
+  <div class="h-screen w-screen flex items-center justify-center bg-[#FAFAFA] dark:bg-gray-900 text-gray-400 dark:text-gray-500 text-sm">
+    <div class="animate-pulse">{t('common.loading')}</div>
+  </div>
+{:else}
+<!-- App Container -->
+<main class="h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased transition-opacity duration-150 {currentView === 'detail' && !detailReadyForDisplay ? 'opacity-0' : 'opacity-100'}">
   
   <!-- Custom Titlebar -->
   <div data-tauri-drag-region class="h-7 w-full flex items-center justify-end shrink-0 select-none [-webkit-app-region:drag]">
@@ -1407,6 +1425,7 @@
     </div>
   {/if}
 </main>
+{/if}
 
 <style>
   :global(body) {
