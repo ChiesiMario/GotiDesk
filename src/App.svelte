@@ -243,7 +243,7 @@
           url = savedUrl as string;
           token = savedToken as string;
           try {
-            apps = await invoke('fetch_apps', { url, token });
+            apps = await invoke('fetch_applications', { url, token });
           } catch (e) { console.error("Failed to fetch apps", e); }
         }
         
