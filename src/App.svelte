@@ -195,6 +195,7 @@
   });
 
   let isSaving = $state(false);
+  let isSaved = $state(false);
   let messages: GotifyMessage[] = $state([]);
   let apps: GotifyApplication[] = $state([]);
   let selectedAppId: number | null = $state(null);
@@ -335,9 +336,9 @@
       if (savedDateFormat) {
         dateFormat = savedDateFormat as string;
       }
-      if (savedFontPrimary !== null) fontPrimary = savedFontPrimary as string;
-      if (savedFontFallback !== null) fontFallback = savedFontFallback as string;
-      if (savedPangu !== null) {
+      if (savedFontPrimary != null) fontPrimary = savedFontPrimary as string;
+      if (savedFontFallback != null) fontFallback = savedFontFallback as string;
+      if (savedPangu != null) {
         enablePangu = savedPangu as boolean;
         draftEnablePangu = savedPangu as boolean;
       }
@@ -623,8 +624,11 @@
       }
 
       errorMessage = '';
-      showSettings = false;
       loadData();
+      isSaved = true;
+      setTimeout(() => {
+        isSaved = false;
+      }, 2000);
     } catch (e) {
       console.error('儲存失敗:', e);
       errorMessage = `${t('error.saveFailed')} ${e}`;
@@ -1317,8 +1321,10 @@
                 <div class="pt-2">
                   <button 
                     type="submit" 
-                    disabled={isSaving}
-                    class="w-full h-9 bg-black dark:bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-gray-800 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    disabled={isSaving || isSaved}
+                    class={`w-full h-9 text-white rounded-md px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center ${
+                      isSaved ? 'bg-green-600 dark:bg-green-600 hover:bg-green-700' : 'bg-black dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                    }`}
                   >
                     {#if isSaving}
                       <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1326,6 +1332,11 @@
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       {t('settings.saving')}
+                    {:else if isSaved}
+                      <svg class="-ml-1 mr-2 w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      {t('settings.saved')}
                     {:else}
                       {t('settings.save')}
                     {/if}
