@@ -250,7 +250,9 @@
   function renderMarkdown(text: string): string {
     if (!text) return '';
     try {
-      const rawHtml = marked.parse(text, { breaks: true, gfm: true }) as string;
+      // breaks: false ignores single hard newlines, treating them as spaces (standard markdown).
+      // This prevents ugly breaks in Chinese text caused by fixed-width wrapping from the sender.
+      const rawHtml = marked.parse(text, { breaks: false, gfm: true }) as string;
       return DOMPurify.sanitize(rawHtml) as string;
     } catch (e) {
       console.warn("Markdown parsing error", e);

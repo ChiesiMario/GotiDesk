@@ -34,3 +34,16 @@ body {
 .theme-transitioning * {
   transition: none !important;
 }
+
+/* Elegant Chinese Text Wrapping */
+.markdown-content {
+  text-align: justify;
+  text-justify: inter-ideograph;
+  text-wrap: pretty;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
