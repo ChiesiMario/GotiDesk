@@ -10,7 +10,7 @@
   let searchQuery = $state('');
 
   let filteredOptions = $derived(
-    options.filter(o => o.toLowerCase().includes(searchQuery.toLowerCase()))
+    options.filter((o: string) => o.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   function toggleOpen() {

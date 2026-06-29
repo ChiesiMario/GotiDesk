@@ -15,6 +15,7 @@
   import { TrayIcon } from '@tauri-apps/api/tray';
   import { Menu, MenuItem, PredefinedMenuItem, CheckMenuItem } from '@tauri-apps/api/menu';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import pangu from 'pangu';
 
   interface GotifyMessage {
     id: number;
@@ -53,6 +54,7 @@
   let dateFormat = $state('system');
   let fontPrimary = $state('');
   let fontFallback = $state('');
+  let enablePangu = $state(true);
   let systemFonts: string[] = $state([]);
   let activePopover: { id: string, top: number, left: number } | null = $state(null);
   let language = $state<LanguageCode>('en');
@@ -159,22 +161,32 @@
   let justEnabledPush = $state(false);
   let mobileView = $state<'master' | 'detail'>('master');
   let recentServers: { url: string, token: string }[] = $state([]);
+  let searchQuery = $state('');
 
-  function renderMarkdown(text: string) {
+  function renderMarkdown(text: string): string {
     if (!text) return '';
     try {
       const rawHtml = marked.parse(text, { breaks: true, gfm: true }) as string;
-      return DOMPurify.sanitize(rawHtml);
+      return DOMPurify.sanitize(rawHtml) as string;
     } catch (e) {
       console.warn("Markdown parsing error", e);
       return text;
     }
   }
 
+  function formatText(text: string): string {
+    if (!text) return '';
+    return enablePangu ? pangu.spacingText(text) : text;
+  }
+
   let filteredMessages = $derived(
-    selectedAppId === null 
-      ? messages 
-      : messages.filter(m => m.appid === selectedAppId)
+    messages
+      .filter(m => selectedAppId === null || m.appid === selectedAppId)
+      .filter(m => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (m.title && m.title.toLowerCase().includes(q)) || (m.message && m.message.toLowerCase().includes(q));
+      })
   );
 
   $effect(() => {
@@ -220,6 +232,7 @@
       const savedPushSettings = await store.get('push_settings');
       const savedFontPrimary = await store.get('font_primary');
       const savedFontFallback = await store.get('font_fallback');
+      const savedPangu = await store.get('enable_pangu');
       const savedLanguage = await store.get('language');
       const savedRecentServers = await store.get('recent_servers');
       const savedAutostartInit = await store.get('autostart_init');
@@ -252,8 +265,9 @@
       if (savedDateFormat) {
         dateFormat = savedDateFormat as string;
       }
-      if (savedFontPrimary) fontPrimary = savedFontPrimary as string;
-      if (savedFontFallback) fontFallback = savedFontFallback as string;
+      if (savedFontPrimary !== null) fontPrimary = savedFontPrimary as string;
+      if (savedFontFallback !== null) fontFallback = savedFontFallback as string;
+      if (savedPangu !== null) enablePangu = savedPangu as boolean;
       if (savedPushSettings) {
         pushSettings = savedPushSettings as PushSettings;
       }
@@ -440,6 +454,7 @@
       await store.set('date_format', dateFormat);
       await store.set('font_primary', fontPrimary);
       await store.set('font_fallback', fontFallback);
+      await store.set('enable_pangu', enablePangu);
       await store.set('language', language);
       await store.set('push_settings', pushSettings);
       await store.save();
@@ -473,6 +488,7 @@
         await store.delete('date_format');
         await store.delete('font_primary');
         await store.delete('font_fallback');
+        await store.delete('enable_pangu');
         await store.delete('language');
         await store.delete('push_settings');
         await store.save();
@@ -618,7 +634,7 @@
               </div>
             </div>
             <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
-              {detailMessage.title || t('common.notification')}
+              {pangu.spacingText(detailMessage.title || t('common.notification'))}
             </h1>
           </div>
 
@@ -651,7 +667,7 @@
           <div class="h-px w-full bg-gray-200"></div>
           
           <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words markdown-content">
-            {@html renderMarkdown(detailMessage.message)}
+            {@html pangu.spacingText(renderMarkdown(detailMessage.message))}
           </div>
         </div>
       {:else}
@@ -900,6 +916,9 @@
               <a href="#settings-general" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
                 {t('settings.general')}
               </a>
+              <a href="#settings-appearance" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
+                {t('settings.appearance')}
+              </a>
               <a href="#settings-notifications" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
                 {t('settings.notifications')}
               </a>
@@ -911,7 +930,7 @@
             <nav class="space-y-1 relative">
               <div class="relative group w-full">
                 <button 
-                  onclick={() => { selectedAppId = null; mobileView = 'detail'; }}
+                  onclick={() => { selectedAppId = null; mobileView = 'detail'; searchQuery = ''; }}
                   class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
                 >
                   <span class="block pr-6 truncate">{t('sidebar.allMessages')}</span>
@@ -941,7 +960,7 @@
               {#each apps as app}
                 <div class="relative group w-full">
                   <button 
-                    onclick={() => { selectedAppId = app.id; mobileView = 'detail'; }}
+                    onclick={() => { selectedAppId = app.id; mobileView = 'detail'; searchQuery = ''; }}
                     class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === app.id ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
                   >
                     <span class="block pr-6 truncate">{app.name}</span>
@@ -1017,6 +1036,18 @@
                       <option value="iso">{t('format.iso8601')}</option>
                     </select>
                   </div>
+                </div>
+
+                <!-- Appearance Section -->
+                <div class="space-y-6">
+                  <h2 id="settings-appearance" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">{t('settings.appearance')}</h2>
+                  
+                  <div class="space-y-5">
+                    <div class="flex items-center justify-between">
+                      <label for="settings-pangu" class="block text-sm font-medium text-gray-700">{t('settings.enablePangu')}</label>
+                      <input type="checkbox" id="settings-pangu" bind:checked={enablePangu} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                    </div>
+                  </div>
 
                   <div class="space-y-4 pt-2">
                     <FontSelect 
@@ -1090,9 +1121,16 @@
                 </h2>
               </div>
               
-              {#if selectedAppId !== null}
-                <button 
-                  class={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              <div class="flex items-center space-x-3">
+                <input 
+                  type="text" 
+                  bind:value={searchQuery}
+                  placeholder={t('master.searchPlaceholder')}
+                  class="hidden sm:block h-8 px-3 text-sm bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black focus:bg-white transition-all w-48 placeholder-gray-400"
+                />
+                {#if selectedAppId !== null}
+                  <button 
+                    class={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     deleteAllConfirmState === 0 ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' : 
                     deleteAllConfirmState === 1 ? 'bg-red-500 text-white hover:bg-red-600' : 
                     'bg-red-700 text-white hover:bg-red-800'
@@ -1113,6 +1151,7 @@
                   {/if}
                 </button>
               {/if}
+              </div>
             </div>
 
           {#if isLoadingData}
@@ -1146,7 +1185,7 @@
                         <span class={`hidden group-hover/dot:block text-[11px] font-bold leading-none ${getPriorityTextColor(msg.priority)}`}>{msg.priority}</span>
                       </div>
                       <h3 class="font-semibold text-sm text-black tracking-tight leading-none">
-                        {msg.title || t('common.notification')}
+                        {pangu.spacingText(msg.title || t('common.notification'))}
                       </h3>
                     </div>
                   </div>
@@ -1160,7 +1199,7 @@
                   </div>
                 </div>
                 <div class="text-sm text-gray-600 leading-relaxed markdown-content">
-                  {@html renderMarkdown(msg.message)}
+                  {@html pangu.spacingText(renderMarkdown(msg.message))}
                 </div>
                 <div class="mt-3 flex items-center justify-between">
                   <div class="flex items-center space-x-2">
