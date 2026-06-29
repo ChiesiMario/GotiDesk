@@ -7,6 +7,7 @@
   import { onMount, tick } from 'svelte';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
+  import FontSelect from './lib/FontSelect.svelte';
 
   interface GotifyMessage {
     id: number;
@@ -43,6 +44,9 @@
   let url = $state('');
   let token = $state('');
   let dateFormat = $state('system');
+  let fontPrimary = $state('');
+  let fontFallback = $state('');
+  let systemFonts: string[] = $state([]);
   let activePopover: { id: string, top: number, left: number } | null = $state(null);
   let pushSettings = $state<PushSettings>({
     global_enabled: true,
@@ -63,8 +67,6 @@
   
   let confirmDeleteId: number | null = $state(null);
   let showSettings = $state(false);
-  
-  let isFontLoading = $state(true);
 
   function renderMarkdown(text: string) {
     if (!text) return '';
@@ -84,18 +86,10 @@
   );
 
   onMount(() => {
-    // Background font loading
-    const fontLink = document.createElement('link');
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap';
-    fontLink.rel = 'stylesheet';
-    fontLink.onload = () => { 
-      document.fonts.ready.then(() => {
-        // Ensure it shows for at least a brief moment so it doesn't flicker invisibly if cached
-        setTimeout(() => { isFontLoading = false; }, 300);
-      });
-    };
-    fontLink.onerror = () => { isFontLoading = false; };
-    document.head.appendChild(fontLink);
+    // Fetch system fonts
+    invoke<string[]>('get_system_fonts').then(fonts => {
+      systemFonts = fonts;
+    }).catch(e => console.error("Failed to load system fonts", e));
 
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
@@ -126,10 +120,14 @@
       const savedToken = await store.get('gotify_token');
       const savedDateFormat = await store.get('date_format');
       const savedPushSettings = await store.get('push_settings');
+      const savedFontPrimary = await store.get('font_primary');
+      const savedFontFallback = await store.get('font_fallback');
       
       if (savedDateFormat) {
         dateFormat = savedDateFormat as string;
       }
+      if (savedFontPrimary) fontPrimary = savedFontPrimary as string;
+      if (savedFontFallback) fontFallback = savedFontFallback as string;
       if (savedPushSettings) {
         pushSettings = savedPushSettings as PushSettings;
       }
@@ -258,6 +256,8 @@
       await store.set('gotify_url', url);
       await store.set('gotify_token', token);
       await store.set('date_format', dateFormat);
+      await store.set('font_primary', fontPrimary);
+      await store.set('font_fallback', fontFallback);
       await store.set('push_settings', pushSettings);
       await store.save();
       
@@ -279,6 +279,8 @@
         await store.delete('gotify_url');
         await store.delete('gotify_token');
         await store.delete('date_format');
+        await store.delete('font_primary');
+        await store.delete('font_fallback');
         await store.delete('push_settings');
         await store.save();
       }
@@ -340,25 +342,15 @@
       console.warn("Failed to resize window", e);
     }
   }
+
+  $effect(() => {
+    const primary = fontPrimary ? `"${fontPrimary}"` : 'system-ui';
+    const fallback = fontFallback ? `"${fontFallback}"` : 'sans-serif';
+    document.body.style.setProperty('font-family', `${primary}, ${fallback}, sans-serif`, 'important');
+  });
 </script>
 
 <main class="h-screen bg-white text-black relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased">
-  {#snippet fontStatusIndicator()}
-    <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 transition-colors">
-      {#if isFontLoading}
-        <svg class="animate-spin h-3.5 w-3.5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-[11px] font-medium text-gray-600">加載中...</span>
-      {:else}
-        <svg class="h-3.5 w-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        <span class="text-[11px] font-medium text-gray-600">已加載</span>
-      {/if}
-    </div>
-  {/snippet}
 
   {#if currentView === 'loading'}
     <div class="flex-1 flex items-center justify-center relative z-10">
@@ -381,7 +373,6 @@
             {confirmDeleteId === detailMessage.id ? '確認刪除' : '刪除'}
           </button>
         {/if}
-        {@render fontStatusIndicator()}
       </div>
     </header>
     <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -394,7 +385,7 @@
           <div>
             <div class="flex items-center space-x-2 mb-3">
               <div class={`w-2.5 h-2.5 rounded-full ${getPriorityColor(detailMessage.priority)}`}></div>
-              <span class="text-xs font-mono text-gray-400 tracking-tighter">
+              <span class="text-xs text-gray-400 tracking-tighter">
                 {formatDate(detailMessage.date)}
               </span>
             </div>
@@ -479,11 +470,10 @@
         <h1 class="text-sm font-semibold tracking-tight text-black">GotiDesk</h1>
       </div>
       <div class="flex items-center space-x-3">
-        {@render fontStatusIndicator()}
         <button 
-          onclick={() => showSettings = true}
-          class="text-gray-400 hover:text-black transition-colors p-1"
           title="Settings"
+          onclick={() => showSettings = true}
+          class={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-200 text-black' : 'text-gray-400 hover:text-black hover:bg-gray-100'}`}
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
@@ -512,8 +502,8 @@
               <label class="text-sm font-medium">Enable Push</label>
               <input type="checkbox" bind:checked={pushSettings.global_enabled} onchange={savePushSettings} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Global Min Priority</label>
+            <div class="space-y-2">
+              <label class="block text-sm text-gray-600">Global Min Priority</label>
               <input type="number" min="0" max="10" bind:value={pushSettings.global_min_priority} onchange={savePushSettings} class="w-full h-8 px-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-black" />
             </div>
           </div>
@@ -601,31 +591,35 @@
           <div class="p-4">
             <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Applications</h2>
             <nav class="space-y-1 relative">
-              <div class="relative group">
-                <div class="relative group w-full">
-                  <button 
-                    onclick={() => selectedAppId = null}
-                    class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
-                  >
-                    <span class="block pr-6 truncate">All Messages</span>
-                  </button>
-                  <button 
-                    onclick={(e) => { 
-                      e.stopPropagation(); 
-                      if (activePopover?.id === 'global') {
-                        activePopover = null;
-                      } else {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        activePopover = { id: 'global', top: rect.bottom + 8, left: rect.left };
-                      }
-                    }}
-                    class={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/10 shrink-0 ${activePopover?.id === 'global' ? 'opacity-100 bg-black/10 text-black' : (selectedAppId === null ? 'text-white hover:bg-white/20' : '')}`}
-                    title="Global Notification Settings"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                  </button>
-                </div>
-
+              <div class="relative group w-full">
+                <button 
+                  onclick={() => selectedAppId = null}
+                  class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
+                >
+                  <span class="block pr-6 truncate">All Messages</span>
+                </button>
+                <button 
+                  onclick={(e) => { 
+                    e.stopPropagation(); 
+                    if (activePopover?.id === 'global') {
+                      activePopover = null;
+                    } else {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      activePopover = { id: 'global', top: rect.bottom + 8, left: rect.left };
+                    }
+                  }}
+                  class={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md transition-all shrink-0 ${
+                    activePopover?.id === 'global' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  } ${
+                    selectedAppId === null 
+                      ? (activePopover?.id === 'global' ? 'bg-white/20 text-white' : 'text-white hover:bg-white/20')
+                      : (activePopover?.id === 'global' ? 'bg-black/10 text-black' : 'text-gray-400 hover:text-black hover:bg-black/10')
+                  }`}
+                  title="Global Notification Settings"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+              </div>
               {#each apps as app}
                 <div class="relative group w-full">
                   <button 
@@ -644,7 +638,13 @@
                         activePopover = { id: app.id.toString(), top: rect.bottom + 8, left: rect.left };
                       }
                     }}
-                    class={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/10 shrink-0 ${activePopover?.id === app.id.toString() ? 'opacity-100 bg-black/10 text-black' : (selectedAppId === app.id ? 'text-white hover:bg-white/20' : '')}`}
+                    class={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md transition-all shrink-0 ${
+                      activePopover?.id === app.id.toString() ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    } ${
+                      selectedAppId === app.id 
+                        ? (activePopover?.id === app.id.toString() ? 'bg-white/20 text-white' : 'text-white hover:bg-white/20')
+                        : (activePopover?.id === app.id.toString() ? 'bg-black/10 text-black' : 'text-gray-400 hover:text-black hover:bg-black/10')
+                    }`}
                     title="Notification Settings"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -680,6 +680,22 @@
                       <option value="zh-TW">Traditional Chinese (10月1日 14:30)</option>
                       <option value="iso">ISO-8601 (2023-10-01 14:30)</option>
                     </select>
+                  </div>
+
+                  <div class="space-y-4 pt-2">
+                    <FontSelect 
+                      label="Primary Font (English)"
+                      bind:value={fontPrimary}
+                      options={systemFonts}
+                      placeholder="e.g., Segoe UI"
+                    />
+                    
+                    <FontSelect 
+                      label="Fallback Font (Chinese)"
+                      bind:value={fontFallback}
+                      options={systemFonts}
+                      placeholder="e.g., Microsoft YaHei"
+                    />
                   </div>
                 </div>
 
@@ -724,8 +740,9 @@
                   />
                   </div>
                 </div>
+              </div>
 
-                {#if errorMessage}
+              {#if errorMessage}
                   <div class="text-red-500 text-sm font-medium">
                     {errorMessage}
                   </div>
@@ -802,7 +819,7 @@
                   {@html renderMarkdown(msg.message)}
                 </div>
                 <div class="mt-1 text-right">
-                  <span class="text-[11px] text-gray-400 font-mono tracking-tighter shrink-0">
+                  <span class="text-[11px] text-gray-400 tracking-tighter shrink-0">
                     {formatDate(msg.date)}
                   </span>
                 </div>

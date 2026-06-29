@@ -5,6 +5,27 @@ use tauri::{
     tray::TrayIconBuilder,
     Manager, WindowEvent,
 };
+use winreg::enums::*;
+use winreg::RegKey;
+
+#[tauri::command]
+fn get_system_fonts() -> Vec<String> {
+    let mut fonts = Vec::new();
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    if let Ok(font_key) = hklm.open_subkey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts") {
+        for (name, _) in font_key.enum_values().filter_map(|v| v.ok()) {
+            let mut font_name = name;
+            // Clean up common suffixes
+            font_name = font_name.replace(" (TrueType)", "");
+            font_name = font_name.replace(" (OpenType)", "");
+            font_name = font_name.replace(" & ", " and ");
+            fonts.push(font_name);
+        }
+    }
+    fonts.sort();
+    fonts.dedup();
+    fonts
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,7 +44,8 @@ pub fn run() {
         websocket::create_detail_window,
         websocket::resize_window,
         websocket::show_window,
-        websocket::delete_message
+        websocket::delete_message,
+        get_system_fonts
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
