@@ -13,10 +13,6 @@ body {
   color: #000;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  padding: 1px;
-  box-sizing: border-box;
-  height: 100vh;
-  overflow: hidden;
 }
 
 /* View Transitions for Dark Mode */

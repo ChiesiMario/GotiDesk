@@ -692,7 +692,7 @@
   });
 </script>
 
-<main class="h-full bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased border border-gray-300 dark:border-gray-700">
+<main class="h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased border border-gray-300 dark:border-gray-700">
   
   <!-- Custom Titlebar -->
   <div data-tauri-drag-region class="h-7 w-full flex items-center justify-end shrink-0 select-none [-webkit-app-region:drag]">
