@@ -212,8 +212,8 @@
   const appStartTime = Date.now();
   async function markReady() {
     const elapsed = Date.now() - appStartTime;
-    if (elapsed < 2000) {
-      await new Promise(resolve => setTimeout(resolve, 2000 - elapsed));
+    if (elapsed < 3000) {
+      await new Promise(resolve => setTimeout(resolve, 3000 - elapsed));
     }
     isReady = true;
   }
