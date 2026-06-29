@@ -1010,12 +1010,10 @@
                       activePopover = { id: 'global', top: rect.bottom + 8, left: rect.left };
                     }
                   }}
-                  class={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md transition-all shrink-0 ${
-                    activePopover?.id === 'global' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                  } ${
+                  class={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors ${
                     selectedAppId === null 
-                      ? (activePopover?.id === 'global' ? 'bg-white dark:bg-gray-900/20 text-white' : 'text-white hover:bg-white dark:bg-gray-900/20')
-                      : (activePopover?.id === 'global' ? 'bg-black/10 text-black dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-black/10')
+                      ? (activePopover?.id === 'global' ? 'bg-white/20 text-white' : 'text-gray-300 hover:text-white hover:bg-white/20')
+                      : (activePopover?.id === 'global' ? 'bg-black/10 dark:bg-white/10 text-black dark:text-white' : 'text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10')
                   }`}
                   title="Global Notification Settings"
                 >
@@ -1040,12 +1038,10 @@
                         activePopover = { id: app.id.toString(), top: rect.bottom + 8, left: rect.left };
                       }
                     }}
-                    class={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md transition-all shrink-0 ${
-                      activePopover?.id === app.id.toString() ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    } ${
+                    class={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 ${
                       selectedAppId === app.id 
-                        ? (activePopover?.id === app.id.toString() ? 'bg-white dark:bg-gray-900/20 text-white' : 'text-white hover:bg-white dark:bg-gray-900/20')
-                        : (activePopover?.id === app.id.toString() ? 'bg-black/10 text-black dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-black/10')
+                        ? (activePopover?.id === app.id.toString() ? 'bg-white/20 text-white' : 'text-gray-300 hover:text-white hover:bg-white/20')
+                        : (activePopover?.id === app.id.toString() ? 'bg-black/10 dark:bg-white/10 text-black dark:text-white' : 'text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10')
                     }`}
                     title="Notification Settings"
                   >
