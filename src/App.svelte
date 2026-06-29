@@ -45,6 +45,31 @@
   }
 
   let store: any = null;
+  let theme: 'system' | 'light' | 'dark' = $state('system');
+  let activeTheme: 'light' | 'dark' = $state('light');
+
+  function updateThemeClass() {
+    const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    activeTheme = isDark ? 'dark' : 'light';
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }
+
+  $effect(() => {
+    updateThemeClass();
+  });
+
+  $effect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => {
+      if (theme === 'system') updateThemeClass();
+    };
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  });
 
   let currentView: 'loading' | 'login' | 'messages' | 'detail' = $state('loading');
   
@@ -215,6 +240,11 @@
       const savedLanguage = await store.get('language');
       const savedRecentServers = await store.get('recent_servers');
       const savedAutostartInit = await store.get('autostart_init');
+      const savedTheme = await store.get('theme');
+
+      if (savedTheme) {
+        theme = savedTheme as 'system' | 'light' | 'dark';
+      }
 
       if (savedLanguage) {
         language = savedLanguage as LanguageCode;
@@ -470,6 +500,7 @@
       await store.set('enable_pangu', enablePangu);
       await store.set('language', language);
       await store.set('push_settings', pushSettings);
+      await store.set('theme', theme);
       await store.save();
       
       try {
@@ -504,6 +535,7 @@
         await store.delete('enable_pangu');
         await store.delete('language');
         await store.delete('push_settings');
+        await store.delete('theme');
         await store.save();
       }
       url = '';
@@ -603,11 +635,11 @@
   });
 </script>
 
-<main class="h-screen bg-white text-black relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased">
+<main class="h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100 relative overflow-hidden flex flex-col selection:bg-black selection:text-white antialiased">
 
   {#if currentView === 'loading'}
     <div class="flex-1 flex items-center justify-center relative z-10">
-      <div class="animate-spin h-5 w-5 text-gray-400">
+      <div class="animate-spin h-5 w-5 text-gray-400 dark:text-gray-500">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -615,8 +647,8 @@
       </div>
     </div>
   {:else if currentView === 'detail'}
-    <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-      <h1 class="text-sm font-semibold tracking-tight text-gray-500 uppercase flex items-center space-x-1">
+    <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
+      <h1 class="text-sm font-semibold tracking-tight text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase flex items-center space-x-1">
         {#if detailMessage}
           <span>{apps.find(a => a.id === detailMessage!.appid)?.name || `App ${detailMessage.appid}`}</span>
           <span class="text-gray-300 mx-1">-</span>
@@ -640,7 +672,7 @@
         <div id="detail-content-inner" class="max-w-2xl mx-auto w-full space-y-6">
           <div class="mb-4">
             <div class="flex-1">
-              <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
+              <h1 class="text-3xl font-bold tracking-tight text-black dark:text-gray-100 leading-tight">
                 <div class="inline-flex items-center justify-center w-4 h-4 mr-2 align-middle group/dot cursor-default" title={`Priority: ${detailMessage.priority}`}>
                   <div class={`w-3 h-3 rounded-full ${getPriorityColor(detailMessage.priority)} group-hover/dot:hidden transition-all`}></div>
                   <span class={`hidden group-hover/dot:block text-xs font-bold leading-none ${getPriorityTextColor(detailMessage.priority)}`}>{detailMessage.priority}</span>
@@ -651,14 +683,14 @@
           </div>
 
           {#if verificationCode}
-            <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+            <div class="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-between">
               <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500">
+                <div class="w-8 h-8 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 dark:text-gray-500">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
                 </div>
                 <div>
-                  <div class="text-xs text-gray-500 font-medium uppercase tracking-wider mb-0.5">{t('detail.verificationCode')}</div>
-                  <div class="font-mono text-lg font-bold text-black tracking-widest">{verificationCode}</div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider mb-0.5">{t('detail.verificationCode')}</div>
+                  <div class="font-mono text-lg font-bold text-black dark:text-gray-100 tracking-widest">{verificationCode}</div>
                 </div>
               </div>
               <button 
@@ -678,22 +710,22 @@
           
           <div class="h-px w-full bg-gray-200"></div>
           
-          <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words markdown-content">
+          <div class="text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap break-words markdown-content">
             {@html renderMarkdown(formatText(detailMessage.message))}
           </div>
         </div>
       {:else}
         <div class="flex-1 flex items-center justify-center h-full">
-          <div class="animate-spin h-5 w-5 text-gray-400">...</div>
+          <div class="animate-spin h-5 w-5 text-gray-400 dark:text-gray-500">...</div>
         </div>
       {/if}
     </div>
   {:else if currentView === 'login'}
-    <div class="flex-1 flex flex-col p-6 relative z-10 items-center justify-center bg-white">
+    <div class="flex-1 flex flex-col p-6 relative z-10 items-center justify-center bg-white dark:bg-gray-900">
       <div class="w-full max-w-[360px]">
         <div class="text-center mb-10">
-          <h1 class="text-2xl font-bold tracking-tight text-black mb-2">{t('login.title')}</h1>
-          <p class="text-gray-500 text-sm">{t('login.subtitle')}</p>
+          <h1 class="text-2xl font-bold tracking-tight text-black dark:text-gray-100 mb-2">{t('login.title')}</h1>
+          <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{t('login.subtitle')}</p>
         </div>
 
         {#if errorMessage && currentView === 'login'}
@@ -704,7 +736,7 @@
 
         <form class="space-y-4" onsubmit={(e) => { e.preventDefault(); saveSettings(); }}>
           <div class="space-y-1.5">
-            <label for="url" class="block text-sm font-medium text-black">{t('login.serverUrl')}</label>
+            <label for="url" class="block text-sm font-medium text-black dark:text-gray-100">{t('login.serverUrl')}</label>
             <input 
               type="url" 
               id="url"
@@ -714,7 +746,7 @@
               required
               autocomplete="off"
               spellcheck="false"
-              class={`w-full bg-white border ${urlError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-black focus:ring-black'} rounded-md px-3 py-2 text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-1 transition-colors`}
+              class={`w-full bg-white dark:bg-gray-900 border ${urlError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-700 focus:border-black focus:ring-black'} rounded-md px-3 py-2 text-sm text-black dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 transition-colors`}
             />
             {#if urlError}
               <p class="text-xs text-red-500 mt-1">{urlError}</p>
@@ -722,7 +754,7 @@
           </div>
 
           <div class="space-y-1.5">
-            <label for="token" class="block text-sm font-medium text-black">{t('login.clientToken')}</label>
+            <label for="token" class="block text-sm font-medium text-black dark:text-gray-100">{t('login.clientToken')}</label>
             <input 
               type="password" 
               id="token"
@@ -731,7 +763,7 @@
               required
               autocomplete="off"
               spellcheck="false"
-              class="w-full bg-white border border-gray-200 rounded-md px-3 py-2 text-sm text-black placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+              class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm text-black dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
             />
           </div>
 
@@ -756,18 +788,18 @@
 
         {#if recentServers.length > 0}
           <div class="mt-8 pt-6 border-t border-gray-100">
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t('login.recentServers')}</h2>
+            <h2 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">{t('login.recentServers')}</h2>
             <div class="space-y-2">
               {#each recentServers as server}
                 <div 
-                  class="flex items-center justify-between bg-gray-50 border border-gray-100 hover:border-gray-300 rounded-md px-3 py-2 transition-colors cursor-pointer group" 
+                  class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 border border-gray-100 hover:border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 transition-colors cursor-pointer group" 
                   onclick={() => { url = server.url; token = server.token; }}
                 >
                   <div class="flex-1 min-w-0 pr-3">
-                    <div class="text-sm font-medium text-gray-700 truncate">{server.url}</div>
+                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{server.url}</div>
                   </div>
                   <button 
-                    class="p-1 rounded text-gray-300 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-white transition-all"
+                    class="p-1 rounded text-gray-300 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-white dark:bg-gray-900 transition-all"
                     title="Remove from history"
                     onclick={(e) => {
                       e.stopPropagation();
@@ -788,23 +820,23 @@
       </div>
     </div>
   {:else if currentView === 'messages'}
-    <header class="bg-white border-b border-gray-200 px-6 h-14 flex items-center justify-between shrink-0 z-20">
+    <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 h-14 flex items-center justify-between shrink-0 z-20">
       <div class="flex items-center space-x-2">
         <div class="w-6 h-6 shrink-0 hidden sm:flex">
           <img src="/logo.png" alt="GotiDesk Logo" class="w-full h-full object-contain rounded" />
         </div>
-        <h1 class="text-sm font-semibold tracking-tight text-black shrink-0 hidden sm:block">GotiDesk</h1>
-        <div class="sm:ml-3 sm:pl-3 sm:border-l border-gray-200 flex items-center space-x-2 text-xs font-medium px-1 sm:px-2">
+        <h1 class="text-sm font-semibold tracking-tight text-black dark:text-gray-100 shrink-0 hidden sm:block">GotiDesk</h1>
+        <div class="sm:ml-3 sm:pl-3 sm:border-l border-gray-200 dark:border-gray-700 flex items-center space-x-2 text-xs font-medium px-1 sm:px-2">
           <div class={`w-2 h-2 rounded-full shrink-0 hidden sm:block ${wsStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : wsStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`}></div>
           <button 
-            class="text-gray-500 max-w-[150px] truncate hidden sm:block cursor-pointer hover:text-black hover:underline transition-colors focus:outline-none" 
+            class="text-gray-500 dark:text-gray-400 dark:text-gray-500 max-w-[150px] truncate hidden sm:block cursor-pointer hover:text-black dark:text-gray-100 hover:underline transition-colors focus:outline-none" 
             title={url}
             onclick={() => { if (url) open(url); }}
           >
             {url ? url.replace(/^https?:\/\//, '').replace(/\/$/, '') : 'Not Connected'}
           </button>
           <span class="text-gray-300 px-1 hidden sm:block">|</span>
-          <span class={`flex items-center space-x-1 ${pushSettings.global_enabled ? 'text-green-600' : 'text-gray-400'}`}>
+          <span class={`flex items-center space-x-1 ${pushSettings.global_enabled ? 'text-green-600' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}>
             {#if pushSettings.global_enabled}
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               <span>Push ON</span>
@@ -819,10 +851,31 @@
         </div>
       </div>
       <div class="flex items-center space-x-3">
+        <button
+          title={theme === 'system' ? t('settings.themeSystem') : theme === 'dark' ? t('settings.themeDark') : t('settings.themeLight')}
+          onclick={() => {
+            const nextTheme = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
+            theme = nextTheme;
+            updateThemeClass();
+            if (store) {
+              store.set('theme', theme);
+              store.save();
+            }
+          }}
+          class="p-2 rounded-md transition-colors text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-gray-700"
+        >
+          {#if theme === 'system'}
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+          {:else if theme === 'dark'}
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+          {:else}
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          {/if}
+        </button>
         <button 
           title="Settings"
           onclick={() => showSettings = true}
-          class={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-200 text-black' : 'text-gray-400 hover:text-black hover:bg-gray-100'}`}
+          class={`p-2 rounded-md transition-colors ${showSettings ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-gray-100'}`}
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
@@ -831,7 +884,7 @@
         </button>
         <button 
           onclick={logout}
-          class="text-xs font-medium text-gray-500 hover:text-black border border-gray-200 bg-white hover:bg-gray-50 px-3 py-1.5 rounded-md transition-colors"
+          class="text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-md transition-colors"
         >
           {t('common.logout')}
         </button>
@@ -844,24 +897,24 @@
       <div class="fixed inset-0 z-40" onclick={() => activePopover = null}></div>
       
       {#if activePopover.id === 'global'}
-        <div class="fixed bg-white border border-gray-200 rounded-md shadow-lg z-50 p-4 text-gray-800 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">{t('sidebar.globalNotifSettings')}</h3>
+        <div class="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-4 text-gray-800 dark:text-gray-200 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-3">{t('sidebar.globalNotifSettings')}</h3>
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <label class="text-sm font-medium">{t('settings.enablePush')}</label>
-              <input type="checkbox" bind:checked={pushSettings.global_enabled} onchange={savePushSettings} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+              <input type="checkbox" bind:checked={pushSettings.global_enabled} onchange={savePushSettings} class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
             </div>
             <div class="space-y-2">
-              <label class="block text-sm text-gray-600">{t('settings.globalMinPriority')}</label>
-              <input type="number" min="0" max="10" bind:value={pushSettings.global_min_priority} onchange={savePushSettings} class="w-full h-8 px-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-black" />
+              <label class="block text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">{t('settings.globalMinPriority')}</label>
+              <input type="number" min="0" max="10" bind:value={pushSettings.global_min_priority} onchange={savePushSettings} class="w-full h-8 px-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-black" />
             </div>
           </div>
         </div>
       {:else}
         {@const app = apps.find(a => a.id.toString() === activePopover?.id)}
         {#if app}
-          <div class="fixed bg-white border border-gray-200 rounded-md shadow-lg z-50 p-4 text-gray-800 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 truncate">{app.name} Settings</h3>
+          <div class="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-4 text-gray-800 dark:text-gray-200 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-3 truncate">{app.name} Settings</h3>
             <div class="space-y-4">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-medium">{t('settings.enablePush')}</label>
@@ -875,10 +928,10 @@
                     pushSettings.apps[app.id.toString()].enabled = checked;
                     savePushSettings();
                   }}
-                  class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                  class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
               </div>
               <div class="space-y-2">
-                <label class="flex items-center space-x-2 text-sm text-gray-600">
+                <label class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
                   <input type="checkbox" 
                     checked={pushSettings.apps[app.id.toString()]?.min_priority !== null && pushSettings.apps[app.id.toString()]?.min_priority !== undefined}
                     onchange={(e) => {
@@ -893,14 +946,14 @@
                       }
                       savePushSettings();
                     }}
-                    class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                    class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
                   <span>{t('settings.setCustomPriority')}</span>
                 </label>
                 {#if pushSettings.apps[app.id.toString()]?.min_priority !== null && pushSettings.apps[app.id.toString()]?.min_priority !== undefined}
                   <input type="number" min="0" max="10" 
                     bind:value={pushSettings.apps[app.id.toString()].min_priority} 
                     onchange={savePushSettings}
-                    class="w-full h-8 px-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-black animate-slide-up" />
+                    class="w-full h-8 px-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-black animate-slide-up" />
                 {/if}
               </div>
             </div>
@@ -911,39 +964,39 @@
 
     <div class="flex flex-1 overflow-hidden relative">
       <!-- Sidebar -->
-      <aside class={`border-r border-gray-200 bg-[#FAFAFA] flex-col overflow-y-auto custom-scrollbar shrink-0 ${mobileView === 'master' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:w-fit sm:min-w-[200px] sm:max-w-[320px] sm:static`}>
+      <aside class={`border-r border-gray-200 dark:border-gray-700 bg-[#FAFAFA] flex-col overflow-y-auto custom-scrollbar shrink-0 ${mobileView === 'master' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:w-fit sm:min-w-[200px] sm:max-w-[320px] sm:static`}>
         {#if showSettings}
           <div class="p-4">
             <button 
               onclick={() => showSettings = false}
-              class="w-full text-left px-3 py-2 mb-6 rounded-md text-sm font-medium text-gray-600 hover:text-black hover:bg-gray-100 transition-colors flex items-center space-x-2"
+              class="w-full text-left px-3 py-2 mb-6 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-gray-100 transition-colors flex items-center space-x-2"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
               </svg>
               <span>{t('common.back')}</span>
             </button>
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">{t('sidebar.settings')}</h2>
+            <h2 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-3">{t('sidebar.settings')}</h2>
             <nav class="space-y-1">
-              <a href="#settings-general" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
+              <a href="#settings-general" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100">
                 {t('settings.general')}
               </a>
-              <a href="#settings-appearance" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
+              <a href="#settings-appearance" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100">
                 {t('settings.appearance')}
               </a>
-              <a href="#settings-notifications" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
+              <a href="#settings-notifications" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100">
                 {t('settings.notifications')}
               </a>
             </nav>
           </div>
         {:else}
           <div class="p-4">
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t('sidebar.applications')}</h2>
+            <h2 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">{t('sidebar.applications')}</h2>
             <nav class="space-y-1 relative">
               <div class="relative group w-full">
                 <button 
                   onclick={() => { selectedAppId = null; mobileView = 'detail'; searchQuery = ''; }}
-                  class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
+                  class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100'}`}
                 >
                   <span class="block pr-6 truncate">{t('sidebar.allMessages')}</span>
                 </button>
@@ -961,8 +1014,8 @@
                     activePopover?.id === 'global' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                   } ${
                     selectedAppId === null 
-                      ? (activePopover?.id === 'global' ? 'bg-white/20 text-white' : 'text-white hover:bg-white/20')
-                      : (activePopover?.id === 'global' ? 'bg-black/10 text-black' : 'text-gray-400 hover:text-black hover:bg-black/10')
+                      ? (activePopover?.id === 'global' ? 'bg-white dark:bg-gray-900/20 text-white' : 'text-white hover:bg-white dark:bg-gray-900/20')
+                      : (activePopover?.id === 'global' ? 'bg-black/10 text-black dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-black/10')
                   }`}
                   title="Global Notification Settings"
                 >
@@ -973,7 +1026,7 @@
                 <div class="relative group w-full">
                   <button 
                     onclick={() => { selectedAppId = app.id; mobileView = 'detail'; searchQuery = ''; }}
-                    class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === app.id ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
+                    class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === app.id ? 'bg-black text-white font-medium' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100'}`}
                   >
                     <span class="block pr-6 truncate">{app.name}</span>
                   </button>
@@ -991,8 +1044,8 @@
                       activePopover?.id === app.id.toString() ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     } ${
                       selectedAppId === app.id 
-                        ? (activePopover?.id === app.id.toString() ? 'bg-white/20 text-white' : 'text-white hover:bg-white/20')
-                        : (activePopover?.id === app.id.toString() ? 'bg-black/10 text-black' : 'text-gray-400 hover:text-black hover:bg-black/10')
+                        ? (activePopover?.id === app.id.toString() ? 'bg-white dark:bg-gray-900/20 text-white' : 'text-white hover:bg-white dark:bg-gray-900/20')
+                        : (activePopover?.id === app.id.toString() ? 'bg-black/10 text-black dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-black/10')
                     }`}
                     title="Notification Settings"
                   >
@@ -1006,7 +1059,7 @@
       </aside>
 
       <!-- Main Content -->
-      <main class={`flex-1 flex-col bg-white overflow-hidden relative ${mobileView === 'detail' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:static`}>
+      <main class={`flex-1 flex-col bg-white dark:bg-gray-900 overflow-hidden relative ${mobileView === 'detail' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:static`}>
         {#if wsStatus !== 'connected' && url && token}
           <div class={`shrink-0 w-full px-4 py-2 text-sm font-medium text-center shadow-sm transition-colors duration-300 ${wsStatus === 'connecting' ? 'bg-yellow-50 text-yellow-800 border-b border-yellow-200' : 'bg-red-50 text-red-800 border-b border-red-200'}`}>
             <div class="flex items-center justify-center space-x-2">
@@ -1027,19 +1080,19 @@
               <form onsubmit={(e) => { e.preventDefault(); saveSettingsInline(); }} class="space-y-12 max-w-md pb-10">
                 <!-- General Section -->
                 <div class="space-y-6">
-                  <h2 id="settings-general" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">{t('settings.general')}</h2>
+                  <h2 id="settings-general" class="text-xl font-bold tracking-tight text-black dark:text-gray-100 border-b border-gray-100 pb-2 pt-4">{t('settings.general')}</h2>
                   
                   <div class="flex items-center justify-between pb-2">
-                    <label for="settings-autostart" class="block text-sm font-medium text-gray-700">{t('settings.autostart')}</label>
-                    <input type="checkbox" id="settings-autostart" bind:checked={autoStartEnabled} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                    <label for="settings-autostart" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.autostart')}</label>
+                    <input type="checkbox" id="settings-autostart" bind:checked={autoStartEnabled} class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
                   </div>
 
                   <div>
-                    <label for="settings-language" class="block text-sm font-medium text-gray-700 mb-1.5">{t('settings.language')}</label>
+                    <label for="settings-language" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('settings.language')}</label>
                     <select 
                       id="settings-language"
                       bind:value={language}
-                      class="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
                     >
                       <option value="en">English</option>
                       <option value="zh-TW">繁體中文</option>
@@ -1048,11 +1101,25 @@
                   </div>
 
                   <div>
-                    <label for="settings-dateformat" class="block text-sm font-medium text-gray-700 mb-1.5">{t('settings.dateFormat')}</label>
+                    <label for="settings-theme" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('settings.theme')}</label>
+                    <select 
+                      id="settings-theme"
+                      bind:value={theme}
+                      onchange={updateThemeClass}
+                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                    >
+                      <option value="system">{t('settings.themeSystem')}</option>
+                      <option value="light">{t('settings.themeLight')}</option>
+                      <option value="dark">{t('settings.themeDark')}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label for="settings-dateformat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('settings.dateFormat')}</label>
                     <select 
                       id="settings-dateformat"
                       bind:value={dateFormat}
-                      class="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                      class="w-full h-10 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm shadow-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
                     >
                       <option value="system">{t('format.systemDefault')}</option>
                       <option value="en-US">{t('format.usEnglish')}</option>
@@ -1065,12 +1132,12 @@
 
                 <!-- Appearance Section -->
                 <div class="space-y-6">
-                  <h2 id="settings-appearance" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">{t('settings.appearance')}</h2>
+                  <h2 id="settings-appearance" class="text-xl font-bold tracking-tight text-black dark:text-gray-100 border-b border-gray-100 pb-2 pt-4">{t('settings.appearance')}</h2>
                   
                   <div class="space-y-5">
                     <div class="flex items-center justify-between">
-                      <label for="settings-pangu" class="block text-sm font-medium text-gray-700">{t('settings.enablePangu')}</label>
-                      <input type="checkbox" id="settings-pangu" bind:checked={draftEnablePangu} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                      <label for="settings-pangu" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.enablePangu')}</label>
+                      <input type="checkbox" id="settings-pangu" bind:checked={draftEnablePangu} class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
                     </div>
                   </div>
 
@@ -1093,12 +1160,12 @@
 
                 <!-- Notifications Section -->
                 <div class="space-y-6">
-                  <h2 id="settings-notifications" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">{t('settings.notifications')}</h2>
+                  <h2 id="settings-notifications" class="text-xl font-bold tracking-tight text-black dark:text-gray-100 border-b border-gray-100 pb-2 pt-4">{t('settings.notifications')}</h2>
                   
                   <div class="space-y-5">
                     <div class="flex items-center justify-between">
-                      <label for="settings-global-push" class="block text-sm font-medium text-gray-700">{t('settings.enablePush')}</label>
-                      <input type="checkbox" id="settings-global-push" bind:checked={pushSettings.global_enabled} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                      <label for="settings-global-push" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.enablePush')}</label>
+                      <input type="checkbox" id="settings-global-push" bind:checked={pushSettings.global_enabled} class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
                     </div>
                   </div>
                 </div>
@@ -1130,18 +1197,18 @@
             </div>
           </div>
         {:else}
-          <div class="flex-1 overflow-y-auto p-6 bg-white custom-scrollbar relative">
+          <div class="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900 custom-scrollbar relative">
           <div class="max-w-2xl mx-auto w-full space-y-4 pb-10">
             <div class="mb-6 flex justify-between items-center">
               <div class="flex items-center space-x-2">
                 <button 
-                  class="sm:hidden p-1.5 -ml-2 rounded-md text-gray-500 hover:text-black hover:bg-gray-100 transition-colors"
+                  class="sm:hidden p-1.5 -ml-2 rounded-md text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-black dark:text-gray-100 hover:bg-gray-100 transition-colors"
                   onclick={() => mobileView = 'master'}
                   title="Back to Applications"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
-                <h2 class="text-xl font-bold tracking-tight text-black">
+                <h2 class="text-xl font-bold tracking-tight text-black dark:text-gray-100">
                   {selectedAppId === null ? t('sidebar.allMessages') : apps.find(a => a.id === selectedAppId)?.name || 'Application'}
                 </h2>
               </div>
@@ -1151,7 +1218,7 @@
                   type="text" 
                   bind:value={searchQuery}
                   placeholder={t('master.searchPlaceholder')}
-                  class="hidden sm:block h-8 px-3 text-sm bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black focus:bg-white transition-all w-48 placeholder-gray-400"
+                  class="hidden sm:block h-8 px-3 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black focus:bg-white dark:bg-gray-900 transition-all w-48 placeholder-gray-400"
                 />
                 {#if selectedAppId !== null}
                   <button 
@@ -1181,7 +1248,7 @@
 
           {#if isLoadingData}
             <div class="flex justify-center items-center h-20">
-              <svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg class="animate-spin h-5 w-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -1189,10 +1256,10 @@
           {:else if errorMessage}
             <div class="bg-red-50 border border-red-200 text-red-600 rounded-md p-4 text-sm flex items-start justify-between">
               <span>{errorMessage}</span>
-              <button onclick={loadData} class="text-xs font-medium bg-white border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors ml-4">{t('common.retry')}</button>
+              <button onclick={loadData} class="text-xs font-medium bg-white dark:bg-gray-900 border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors ml-4">{t('common.retry')}</button>
             </div>
           {:else if filteredMessages.length === 0}
-            <div class="flex flex-col items-center justify-center h-40 text-gray-400 space-y-2">
+            <div class="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-500 space-y-2">
               <svg class="w-6 h-6 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
               </svg>
@@ -1201,7 +1268,7 @@
           {:else}
             {#each filteredMessages as msg (msg.id)}
               {@const code = extractVerificationCode(msg.title) || extractVerificationCode(msg.message)}
-              <div class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all animate-slide-up group">
+              <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all animate-slide-up group">
                 <div class="flex justify-between items-start mb-1.5">
                   <div class="flex flex-col space-y-1.5">
                     <div class="flex items-center space-x-2">
@@ -1209,28 +1276,28 @@
                         <div class={`w-2 h-2 rounded-full ${getPriorityColor(msg.priority)} group-hover/dot:hidden transition-all`}></div>
                         <span class={`hidden group-hover/dot:block text-[11px] font-bold leading-none ${getPriorityTextColor(msg.priority)}`}>{msg.priority}</span>
                       </div>
-                      <h3 class="font-semibold text-sm text-black tracking-tight leading-none">
+                      <h3 class="font-semibold text-sm text-black dark:text-gray-100 tracking-tight leading-none">
                         {formatText(msg.title || t('common.notification'))}
                       </h3>
                     </div>
                   </div>
                   <div class="flex items-center space-x-3 ml-4">
                     <button 
-                      class={`px-2 py-1 rounded text-[10px] font-medium transition-all ${confirmDeleteId === msg.id ? 'bg-red-500 text-white hover:bg-red-600 opacity-100' : 'bg-gray-50 border border-gray-200 text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100'}`}
+                      class={`px-2 py-1 rounded text-[10px] font-medium transition-all ${confirmDeleteId === msg.id ? 'bg-red-500 text-white hover:bg-red-600 opacity-100' : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100'}`}
                       onclick={() => deleteMessage(msg.id)}
                     >
                       {confirmDeleteId === msg.id ? t('common.confirmDelete') : t('common.delete')}
                     </button>
                   </div>
                 </div>
-                <div class="text-sm text-gray-600 leading-relaxed markdown-content">
+                <div class="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 leading-relaxed markdown-content">
                   {@html renderMarkdown(formatText(msg.message))}
                 </div>
                 <div class="mt-3 flex items-center justify-between">
                   <div class="flex items-center space-x-2">
                     {#if selectedAppId === null && msg.appid !== null}
                       <button 
-                        class="text-[10px] font-medium px-2 py-1 bg-gray-50 border border-gray-100 text-gray-400 hover:bg-gray-100 hover:text-black rounded transition-colors"
+                        class="text-[10px] font-medium px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-100 text-gray-400 dark:text-gray-500 hover:bg-gray-100 hover:text-black dark:text-gray-100 rounded transition-colors"
                         onclick={(e) => { e.stopPropagation(); selectedAppId = msg.appid; mobileView = 'detail'; }}
                       >
                         {apps.find(a => a.id === msg.appid)?.name || `App ID: ${msg.appid}`}
@@ -1252,7 +1319,7 @@
                       </button>
                     {/if}
                   </div>
-                  <div class="group/time cursor-default text-[11px] text-gray-400 tracking-tighter shrink-0">
+                  <div class="group/time cursor-default text-[11px] text-gray-400 dark:text-gray-500 tracking-tighter shrink-0">
                     <span class="group-hover/time:hidden">{getRelativeTime(msg.date)}</span>
                     <span class="hidden group-hover/time:block">{formatDate(msg.date)}</span>
                   </div>
