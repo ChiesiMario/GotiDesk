@@ -674,8 +674,8 @@
         const verticalPadding = 64; // p-8 is 32px top and bottom = 64px
         let targetHeight = contentHeight + headerHeight + verticalPadding;
         
-        const MAX_HEIGHT = 900;
-        const MIN_HEIGHT = 500;
+        const MAX_HEIGHT = Math.min(900, window.screen.availHeight - 80);
+        const MIN_HEIGHT = Math.min(500, window.screen.availHeight - 80);
         
         if (targetHeight > MAX_HEIGHT) targetHeight = MAX_HEIGHT;
         if (targetHeight < MIN_HEIGHT) targetHeight = MIN_HEIGHT;
@@ -785,7 +785,7 @@
           
           <div class="h-px w-full bg-gray-200"></div>
           
-          <div class="text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap break-words markdown-content">
+          <div class="text-base text-gray-700 dark:text-gray-300 leading-relaxed markdown-content">
             {@html renderMarkdown(formatText(detailMessage.message))}
           </div>
         </div>

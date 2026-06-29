@@ -291,10 +291,10 @@ pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String>
     )
     .title("Message Detail")
     .inner_size(400.0, 500.0)
-    .min_inner_size(400.0, 500.0)
-    .max_inner_size(1200.0, 900.0)
+    .min_inner_size(400.0, 100.0)
     .maximizable(false)
     .decorations(false)
+    .transparent(true)
     .visible(false);
     
     let window = builder.build().map_err(|e| e.to_string())?;
