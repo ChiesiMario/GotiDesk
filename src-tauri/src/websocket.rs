@@ -290,8 +290,9 @@ pub async fn create_detail_window(app: AppHandle, id: u64) -> Result<(), String>
         tauri::WebviewUrl::App(url.into()),
     )
     .title("Message Detail")
-    .inner_size(500.0, 700.0)
-    .visible(false)
+    .inner_size(800.0, 600.0)
+    .min_inner_size(400.0, 500.0)
+    .max_inner_size(1200.0, 900.0)
     .center();
     
     builder.build().map_err(|e| e.to_string())?;
