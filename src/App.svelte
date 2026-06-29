@@ -2,9 +2,11 @@
   import { load } from '@tauri-apps/plugin-store';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
+  import { open } from '@tauri-apps/plugin-shell';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { LogicalSize } from '@tauri-apps/api/dpi';
   import { onMount, tick } from 'svelte';
+  import { fade } from 'svelte/transition';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
   import FontSelect from './lib/FontSelect.svelte';
@@ -66,7 +68,13 @@
   let detailMessage: GotifyMessage | null = $state(null);
   
   let confirmDeleteId: number | null = $state(null);
+  let deleteAllConfirmState = $state(0);
+  let isDeletingAll = $state(false);
   let showSettings = $state(false);
+  let wsStatus = $state('disconnected');
+  let justEnabledPush = $state(false);
+  let mobileView = $state<'master' | 'detail'>('master');
+  let recentServers: { url: string, token: string }[] = $state([]);
 
   function renderMarkdown(text: string) {
     if (!text) return '';
@@ -84,6 +92,12 @@
       ? messages 
       : messages.filter(m => m.appid === selectedAppId)
   );
+
+  $effect(() => {
+    if (selectedAppId !== undefined) {
+      deleteAllConfirmState = 0;
+    }
+  });
 
   onMount(() => {
     // Fetch system fonts
@@ -122,6 +136,11 @@
       const savedPushSettings = await store.get('push_settings');
       const savedFontPrimary = await store.get('font_primary');
       const savedFontFallback = await store.get('font_fallback');
+      const savedRecentServers = await store.get('recent_servers');
+      
+      if (savedRecentServers && Array.isArray(savedRecentServers)) {
+        recentServers = savedRecentServers;
+      }
       
       if (savedDateFormat) {
         dateFormat = savedDateFormat as string;
@@ -163,6 +182,14 @@
     }).then(unlisten => {
       unlistenDetail = unlisten;
     });
+
+    listen<string>('ws-status', (event) => {
+      wsStatus = event.payload;
+    });
+
+    invoke<string>('get_ws_status').then(status => {
+      if (status) wsStatus = status;
+    }).catch(e => console.error("Failed to fetch initial ws status", e));
 
     return () => {
       if (unlistenMessage) unlistenMessage();
@@ -216,13 +243,41 @@
     }
   }
 
+  let urlError = $state('');
+
+  function validateUrl() {
+    if (!url) return true;
+    urlError = '';
+    let processedUrl = url.trim();
+    if (!/^https?:\/\//i.test(processedUrl)) {
+      processedUrl = 'https://' + processedUrl;
+      url = processedUrl;
+    }
+    try {
+      new URL(processedUrl);
+      return true;
+    } catch (e) {
+      urlError = '無效的 URL 格式 (例如: https://gotify.example.com)';
+      return false;
+    }
+  }
+
   async function saveSettings() {
+    if (!validateUrl()) return;
     isSaving = true;
     errorMessage = '';
     try {
+      // Verify connection first
+      await invoke('fetch_applications', { url, token });
+      
       if (!store) {
         store = await load('settings.json');
       }
+      
+      // Update recent servers
+      recentServers = [{ url, token }, ...recentServers.filter(s => s.url !== url)].slice(0, 5);
+      await store.set('recent_servers', recentServers);
+      
       await store.set('gotify_url', url);
       await store.set('gotify_token', token);
       await store.save();
@@ -232,8 +287,8 @@
       currentView = 'messages';
       loadData();
     } catch (e) {
-      console.error('儲存失敗:', e);
-      alert('儲存失敗：' + e);
+      console.error('連線驗證失敗:', e);
+      errorMessage = '驗證失敗，請檢查 URL 與 Token 是否正確。詳細錯誤：' + e;
     } finally {
       isSaving = false;
     }
@@ -243,6 +298,26 @@
     if (store) {
       await store.set('push_settings', pushSettings);
       await store.save();
+    }
+  }
+
+  async function handleDeleteAll() {
+    if (deleteAllConfirmState < 2) {
+      deleteAllConfirmState++;
+      return;
+    }
+    
+    if (selectedAppId === null) return;
+    
+    isDeletingAll = true;
+    try {
+      await invoke('delete_all_messages', { url, token, appId: selectedAppId });
+      messages = messages.filter(m => m.appid !== selectedAppId);
+    } catch (e: any) {
+      errorMessage = `Error deleting messages: ${e}`;
+    } finally {
+      isDeletingAll = false;
+      deleteAllConfirmState = 0;
     }
   }
 
@@ -260,8 +335,6 @@
       await store.set('font_fallback', fontFallback);
       await store.set('push_settings', pushSettings);
       await store.save();
-      
-      await invoke('restart_websocket');
       
       showSettings = false;
       loadData();
@@ -314,10 +387,41 @@
     return d.toLocaleString(dateFormat, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
+  function getRelativeTime(isoDate: string) {
+    const d = new Date(isoDate);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffDay >= 7) {
+      return formatDate(isoDate);
+    }
+    
+    if (diffDay > 0) {
+      return `${diffDay} 天前`;
+    }
+    if (diffHour > 0) {
+      return `${diffHour} 小時前`;
+    }
+    if (diffMin > 0) {
+      return `${diffMin} 分鐘前`;
+    }
+    return '剛剛';
+  }
+
   function getPriorityColor(priority: number) {
     if (priority > 5) return 'bg-red-500';
     if (priority > 2) return 'bg-amber-400';
     return 'bg-blue-500';
+  }
+
+  function getPriorityTextColor(priority: number) {
+    if (priority > 5) return 'text-red-500';
+    if (priority > 2) return 'text-amber-500';
+    return 'text-blue-500';
   }
 
   async function adjustWindowSize() {
@@ -384,10 +488,14 @@
         <div id="detail-content-inner" class="max-w-2xl mx-auto w-full space-y-6">
           <div>
             <div class="flex items-center space-x-2 mb-3">
-              <div class={`w-2.5 h-2.5 rounded-full ${getPriorityColor(detailMessage.priority)}`}></div>
-              <span class="text-xs text-gray-400 tracking-tighter">
-                {formatDate(detailMessage.date)}
-              </span>
+              <div class="w-3 h-3 flex items-center justify-center group/dot cursor-default" title={`Priority: ${detailMessage.priority}`}>
+                <div class={`w-2.5 h-2.5 rounded-full ${getPriorityColor(detailMessage.priority)} group-hover/dot:hidden transition-all`}></div>
+                <span class={`hidden group-hover/dot:block text-xs font-bold leading-none ${getPriorityTextColor(detailMessage.priority)}`}>{detailMessage.priority}</span>
+              </div>
+              <div class="group/time cursor-default text-xs text-gray-400 tracking-tighter">
+                <span class="group-hover/time:hidden">{getRelativeTime(detailMessage.date)}</span>
+                <span class="hidden group-hover/time:block">{formatDate(detailMessage.date)}</span>
+              </div>
             </div>
             <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
               {detailMessage.title || 'Notification'}
@@ -414,6 +522,12 @@
           <p class="text-gray-500 text-sm">Enter your Gotify server details below</p>
         </div>
 
+        {#if errorMessage && currentView === 'login'}
+          <div class="mb-6 bg-red-50 border border-red-200 text-red-600 rounded-md p-3 text-sm">
+            {errorMessage}
+          </div>
+        {/if}
+
         <form class="space-y-4" onsubmit={(e) => { e.preventDefault(); saveSettings(); }}>
           <div class="space-y-1.5">
             <label for="url" class="block text-sm font-medium text-black">Server URL</label>
@@ -421,10 +535,16 @@
               type="url" 
               id="url"
               bind:value={url}
+              onblur={validateUrl}
               placeholder="https://gotify.example.com"
               required
-              class="w-full bg-white border border-gray-200 rounded-md px-3 py-2 text-sm text-black placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+              autocomplete="off"
+              spellcheck="false"
+              class={`w-full bg-white border ${urlError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-black focus:ring-black'} rounded-md px-3 py-2 text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-1 transition-colors`}
             />
+            {#if urlError}
+              <p class="text-xs text-red-500 mt-1">{urlError}</p>
+            {/if}
           </div>
 
           <div class="space-y-1.5">
@@ -435,6 +555,8 @@
               bind:value={token}
               placeholder="Client Token"
               required
+              autocomplete="off"
+              spellcheck="false"
               class="w-full bg-white border border-gray-200 rounded-md px-3 py-2 text-sm text-black placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
             />
           </div>
@@ -457,17 +579,72 @@
             </button>
           </div>
         </form>
+
+        {#if recentServers.length > 0}
+          <div class="mt-8 pt-6 border-t border-gray-100">
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Recent Servers</h2>
+            <div class="space-y-2">
+              {#each recentServers as server}
+                <div 
+                  class="flex items-center justify-between bg-gray-50 border border-gray-100 hover:border-gray-300 rounded-md px-3 py-2 transition-colors cursor-pointer group" 
+                  onclick={() => { url = server.url; token = server.token; }}
+                >
+                  <div class="flex-1 min-w-0 pr-3">
+                    <div class="text-sm font-medium text-gray-700 truncate">{server.url}</div>
+                  </div>
+                  <button 
+                    class="p-1 rounded text-gray-300 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-white transition-all"
+                    title="Remove from history"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      recentServers = recentServers.filter(s => s.url !== server.url);
+                      if (store) {
+                        store.set('recent_servers', recentServers);
+                        store.save();
+                      }
+                    }}
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   {:else if currentView === 'messages'}
     <header class="bg-white border-b border-gray-200 px-6 h-14 flex items-center justify-between shrink-0 z-20">
       <div class="flex items-center space-x-2">
-        <div class="w-6 h-6 bg-black rounded flex items-center justify-center">
+        <div class="w-6 h-6 bg-black rounded items-center justify-center shrink-0 hidden sm:flex">
           <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
           </svg>
         </div>
-        <h1 class="text-sm font-semibold tracking-tight text-black">GotiDesk</h1>
+        <h1 class="text-sm font-semibold tracking-tight text-black shrink-0 hidden sm:block">GotiDesk</h1>
+        <div class="sm:ml-3 sm:pl-3 sm:border-l border-gray-200 flex items-center space-x-2 text-xs font-medium px-1 sm:px-2">
+          <div class={`w-2 h-2 rounded-full shrink-0 hidden sm:block ${wsStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : wsStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`}></div>
+          <button 
+            class="text-gray-500 max-w-[150px] truncate hidden sm:block cursor-pointer hover:text-black hover:underline transition-colors focus:outline-none" 
+            title={url}
+            onclick={() => { if (url) open(url); }}
+          >
+            {url ? url.replace(/^https?:\/\//, '').replace(/\/$/, '') : 'Not Connected'}
+          </button>
+          <span class="text-gray-300 px-1 hidden sm:block">|</span>
+          <span class={`flex items-center space-x-1 ${pushSettings.global_enabled ? 'text-green-600' : 'text-gray-400'}`}>
+            {#if pushSettings.global_enabled}
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+              <span>Push ON</span>
+            {:else}
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+              </svg>
+              <span>Push OFF</span>
+            {/if}
+          </span>
+        </div>
       </div>
       <div class="flex items-center space-x-3">
         <button 
@@ -560,9 +737,9 @@
       {/if}
     {/if}
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="flex flex-1 overflow-hidden relative">
       <!-- Sidebar -->
-      <aside class="w-64 border-r border-gray-200 bg-[#FAFAFA] flex flex-col overflow-y-auto custom-scrollbar shrink-0">
+      <aside class={`border-r border-gray-200 bg-[#FAFAFA] flex-col overflow-y-auto custom-scrollbar shrink-0 ${mobileView === 'master' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:w-fit sm:min-w-[200px] sm:max-w-[320px] sm:static`}>
         {#if showSettings}
           <div class="p-4">
             <button 
@@ -582,9 +759,6 @@
               <a href="#settings-notifications" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
                 Notifications
               </a>
-              <a href="#settings-connection" class="block w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-600 hover:bg-gray-100 hover:text-black">
-                Connection
-              </a>
             </nav>
           </div>
         {:else}
@@ -593,7 +767,7 @@
             <nav class="space-y-1 relative">
               <div class="relative group w-full">
                 <button 
-                  onclick={() => selectedAppId = null}
+                  onclick={() => { selectedAppId = null; mobileView = 'detail'; }}
                   class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === null ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
                 >
                   <span class="block pr-6 truncate">All Messages</span>
@@ -623,7 +797,7 @@
               {#each apps as app}
                 <div class="relative group w-full">
                   <button 
-                    onclick={() => selectedAppId = app.id}
+                    onclick={() => { selectedAppId = app.id; mobileView = 'detail'; }}
                     class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === app.id ? 'bg-black text-white font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-black'}`}
                   >
                     <span class="block pr-6 truncate">{app.name}</span>
@@ -657,7 +831,7 @@
       </aside>
 
       <!-- Main Content -->
-      <main class="flex-1 flex flex-col bg-white overflow-hidden relative">
+      <main class={`flex-1 flex-col bg-white overflow-hidden relative ${mobileView === 'detail' ? 'flex w-full z-10' : 'hidden'} sm:flex sm:static`}>
         {#if showSettings}
           <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
             <div class="max-w-2xl w-full space-y-8 scroll-smooth">
@@ -711,37 +885,6 @@
                   </div>
                 </div>
 
-                <!-- Connection Section -->
-                <div class="space-y-6">
-                  <h2 id="settings-connection" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">Connection</h2>
-                  
-                  <div class="space-y-5">
-                    <div>
-                      <label for="settings-url" class="block text-sm font-medium text-gray-700 mb-1.5">Gotify Server URL</label>
-                  <input 
-                    id="settings-url"
-                    type="url" 
-                    bind:value={url} 
-                    placeholder="https://gotify.example.com" 
-                    required
-                    class="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
-                  />
-                </div>
-                
-                <div>
-                  <label for="settings-token" class="block text-sm font-medium text-gray-700 mb-1.5">Client Token</label>
-                  <input 
-                    id="settings-token"
-                    type="password" 
-                    bind:value={token} 
-                    placeholder="Cxxxxxxxxxxxxxx" 
-                    required
-                    class="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
-                  />
-                  </div>
-                </div>
-              </div>
-
               {#if errorMessage}
                   <div class="text-red-500 text-sm font-medium">
                     {errorMessage}
@@ -761,7 +904,7 @@
                       </svg>
                       Saving...
                     {:else}
-                      Save & Restart
+                      Save
                     {/if}
                   </button>
                 </div>
@@ -771,11 +914,44 @@
         {:else}
           <div class="flex-1 overflow-y-auto p-6 bg-white custom-scrollbar relative">
           <div class="max-w-2xl mx-auto w-full space-y-4 pb-10">
-            <div class="mb-6">
-            <h2 class="text-xl font-bold tracking-tight text-black">
-              {selectedAppId === null ? 'All Messages' : apps.find(a => a.id === selectedAppId)?.name || 'Application'}
-            </h2>
-          </div>
+            <div class="mb-6 flex justify-between items-center">
+              <div class="flex items-center space-x-2">
+                <button 
+                  class="sm:hidden p-1.5 -ml-2 rounded-md text-gray-500 hover:text-black hover:bg-gray-100 transition-colors"
+                  onclick={() => mobileView = 'master'}
+                  title="Back to Applications"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <h2 class="text-xl font-bold tracking-tight text-black">
+                  {selectedAppId === null ? 'All Messages' : apps.find(a => a.id === selectedAppId)?.name || 'Application'}
+                </h2>
+              </div>
+              
+              {#if selectedAppId !== null}
+                <button 
+                  class={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    deleteAllConfirmState === 0 ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' : 
+                    deleteAllConfirmState === 1 ? 'bg-red-500 text-white hover:bg-red-600' : 
+                    'bg-red-700 text-white hover:bg-red-800'
+                  }`}
+                  onclick={handleDeleteAll}
+                  disabled={isDeletingAll || filteredMessages.length === 0}
+                >
+                  {#if isDeletingAll}
+                    <span class="flex items-center">
+                      <svg class="animate-spin -ml-1 mr-2 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deleting...
+                    </span>
+                  {:else}
+                    {deleteAllConfirmState === 0 ? 'Delete All' : deleteAllConfirmState === 1 ? 'Confirm Delete' : 'Final Confirm'}
+                  {/if}
+                </button>
+              {/if}
+            </div>
 
           {#if isLoadingData}
             <div class="flex justify-center items-center h-20">
@@ -800,11 +976,16 @@
             {#each filteredMessages as msg (msg.id)}
               <div class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all animate-slide-up group">
                 <div class="flex justify-between items-start mb-1.5">
-                  <div class="flex items-center space-x-2">
-                    <div class={`w-2 h-2 rounded-full ${getPriorityColor(msg.priority)}`}></div>
-                    <h3 class="font-semibold text-sm text-black tracking-tight leading-none">
-                      {msg.title || 'Notification'}
-                    </h3>
+                  <div class="flex flex-col space-y-1.5">
+                    <div class="flex items-center space-x-2">
+                      <div class="w-3 h-3 flex items-center justify-center group/dot cursor-default" title={`Priority: ${msg.priority}`}>
+                        <div class={`w-2 h-2 rounded-full ${getPriorityColor(msg.priority)} group-hover/dot:hidden transition-all`}></div>
+                        <span class={`hidden group-hover/dot:block text-[11px] font-bold leading-none ${getPriorityTextColor(msg.priority)}`}>{msg.priority}</span>
+                      </div>
+                      <h3 class="font-semibold text-sm text-black tracking-tight leading-none">
+                        {msg.title || 'Notification'}
+                      </h3>
+                    </div>
                   </div>
                   <div class="flex items-center space-x-3 ml-4">
                     <button 
@@ -818,10 +999,21 @@
                 <div class="text-sm text-gray-600 leading-relaxed markdown-content">
                   {@html renderMarkdown(msg.message)}
                 </div>
-                <div class="mt-1 text-right">
-                  <span class="text-[11px] text-gray-400 tracking-tighter shrink-0">
-                    {formatDate(msg.date)}
-                  </span>
+                <div class="mt-3 flex items-center justify-between">
+                  <div>
+                    {#if selectedAppId === null && msg.appid !== null}
+                      <button 
+                        class="text-[10px] font-medium px-2 py-1 bg-gray-50 border border-gray-100 text-gray-400 hover:bg-gray-100 hover:text-black rounded transition-colors"
+                        onclick={(e) => { e.stopPropagation(); selectedAppId = msg.appid; mobileView = 'detail'; }}
+                      >
+                        {apps.find(a => a.id === msg.appid)?.name || `App ID: ${msg.appid}`}
+                      </button>
+                    {/if}
+                  </div>
+                  <div class="group/time cursor-default text-[11px] text-gray-400 tracking-tighter shrink-0">
+                    <span class="group-hover/time:hidden">{getRelativeTime(msg.date)}</span>
+                    <span class="hidden group-hover/time:block">{formatDate(msg.date)}</span>
+                  </div>
                 </div>
               </div>
             {/each}

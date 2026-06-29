@@ -49,6 +49,7 @@ pub struct GotifyMessage {
 
 lazy_static! {
     static ref MESSAGE_CACHE: Arc<Mutex<HashMap<u64, GotifyMessage>>> = Arc::new(Mutex::new(HashMap::new()));
+    static ref CURRENT_WS_STATUS: Arc<Mutex<String>> = Arc::new(Mutex::new("disconnected".to_string()));
 }
 
 pub struct WsState {
@@ -82,10 +83,12 @@ pub async fn start_websocket_loop(app: AppHandle) {
                 match Url::parse(&stream_url) {
                     Ok(parsed_url) => {
                         println!("Connecting to Gotify WebSocket...");
+                        *CURRENT_WS_STATUS.lock().await = "connecting".to_string();
                         app.emit("ws-status", "connecting").ok();
                         match connect_async(parsed_url.as_str()).await {
                             Ok((mut ws_stream, _)) => {
                                 println!("WebSocket connected");
+                                *CURRENT_WS_STATUS.lock().await = "connected".to_string();
                                 app.emit("ws-status", "connected").ok();
                                 
                                 while let Some(msg) = ws_stream.next().await {
@@ -178,8 +181,9 @@ pub async fn start_websocket_loop(app: AppHandle) {
             }
         }
         
+        println!("WebSocket connection lost or closed. Retrying in 5 seconds...");
+        *CURRENT_WS_STATUS.lock().await = "disconnected".to_string();
         app.emit("ws-status", "disconnected").ok();
-        println!("WebSocket reconnecting in 5 seconds...");
         sleep(Duration::from_secs(5)).await;
     }
 }
@@ -334,4 +338,31 @@ pub async fn delete_message(url: String, token: String, id: u64) -> Result<(), S
     } else {
         Err(format!("Server returned error: {}", response.status()))
     }
+}
+
+#[tauri::command]
+pub async fn delete_all_messages(url: String, token: String, app_id: u64) -> Result<(), String> {
+    let api_url = format!("{}/application/{}/message", url.trim_end_matches('/'), app_id);
+    
+    let client = reqwest::Client::new();
+    let response = client.delete(&api_url)
+        .header("X-Gotify-Key", token)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+        
+    if response.status().is_success() {
+        let mut cache = MESSAGE_CACHE.lock().await;
+        // Invalidate cache or wait for ws updates
+        cache.retain(|_, msg| msg.appid != Some(app_id));
+        Ok(())
+    } else {
+        Err(format!("Server returned error: {}", response.status()))
+    }
+}
+
+#[tauri::command]
+pub async fn get_ws_status() -> Result<String, String> {
+    let status = CURRENT_WS_STATUS.lock().await;
+    Ok(status.clone())
 }
