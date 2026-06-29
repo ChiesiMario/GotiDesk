@@ -729,7 +729,7 @@
         </div>
 
         {#if errorMessage && currentView === 'login'}
-          <div class="mb-6 bg-red-50 border border-red-200 text-red-600 rounded-md p-3 text-sm">
+          <div class="mb-6 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-md p-3 text-sm">
             {errorMessage}
           </div>
         {/if}
@@ -746,7 +746,7 @@
               required
               autocomplete="off"
               spellcheck="false"
-              class={`w-full bg-white dark:bg-gray-900 border ${urlError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-700 focus:border-black focus:ring-black'} rounded-md px-3 py-2 text-sm text-black dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 transition-colors`}
+              class={`w-full bg-white dark:bg-gray-900 border ${urlError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-700 focus:border-black dark:focus:border-gray-500 focus:ring-black dark:focus:ring-gray-500'} rounded-md px-3 py-2 text-sm text-black dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 transition-colors`}
             />
             {#if urlError}
               <p class="text-xs text-red-500 mt-1">{urlError}</p>
@@ -763,7 +763,7 @@
               required
               autocomplete="off"
               spellcheck="false"
-              class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm text-black dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+              class="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm text-black dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-black dark:focus:border-gray-500 focus:ring-1 focus:ring-black dark:focus:ring-gray-500 transition-colors"
             />
           </div>
 
@@ -771,7 +771,7 @@
             <button 
               type="submit" 
               disabled={isSaving}
-              class="w-full h-9 bg-black text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              class="w-full h-9 bg-black dark:bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-gray-800 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {#if isSaving}
                 <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -792,7 +792,7 @@
             <div class="space-y-2">
               {#each recentServers as server}
                 <div 
-                  class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 border border-gray-100 hover:border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 transition-colors cursor-pointer group" 
+                  class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500 rounded-md px-3 py-2 transition-colors cursor-pointer group"
                   onclick={() => { url = server.url; token = server.token; }}
                 >
                   <div class="flex-1 min-w-0 pr-3">
@@ -898,15 +898,15 @@
       
       {#if activePopover.id === 'global'}
         <div class="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-4 text-gray-800 dark:text-gray-200 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-3">{t('sidebar.globalNotifSettings')}</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">{t('sidebar.globalNotifSettings')}</h3>
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <label class="text-sm font-medium">{t('settings.enablePush')}</label>
-              <input type="checkbox" bind:checked={pushSettings.global_enabled} onchange={savePushSettings} class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
+              <input type="checkbox" bind:checked={pushSettings.global_enabled} onchange={savePushSettings} class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black dark:focus:ring-gray-500 border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded" />
             </div>
             <div class="space-y-2">
-              <label class="block text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">{t('settings.globalMinPriority')}</label>
-              <input type="number" min="0" max="10" bind:value={pushSettings.global_min_priority} onchange={savePushSettings} class="w-full h-8 px-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-black" />
+              <label class="block text-sm text-gray-600 dark:text-gray-400">{t('settings.globalMinPriority')}</label>
+              <input type="number" min="0" max="10" bind:value={pushSettings.global_min_priority} onchange={savePushSettings} class="w-full h-8 px-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded text-sm focus:outline-none focus:border-black dark:focus:border-gray-500" />
             </div>
           </div>
         </div>
@@ -914,7 +914,7 @@
         {@const app = apps.find(a => a.id.toString() === activePopover?.id)}
         {#if app}
           <div class="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-4 text-gray-800 dark:text-gray-200 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-3 truncate">{app.name} Settings</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 truncate">{app.name} Settings</h3>
             <div class="space-y-4">
               <div class="flex items-center justify-between">
                 <label class="text-sm font-medium">{t('settings.enablePush')}</label>
@@ -928,10 +928,10 @@
                     pushSettings.apps[app.id.toString()].enabled = checked;
                     savePushSettings();
                   }}
-                  class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
+                  class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black dark:focus:ring-gray-500 border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded" />
               </div>
               <div class="space-y-2">
-                <label class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                <label class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                   <input type="checkbox" 
                     checked={pushSettings.apps[app.id.toString()]?.min_priority !== null && pushSettings.apps[app.id.toString()]?.min_priority !== undefined}
                     onchange={(e) => {
@@ -946,14 +946,14 @@
                       }
                       savePushSettings();
                     }}
-                    class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black border-gray-300 dark:border-gray-600 rounded" />
+                    class="h-4 w-4 text-black dark:text-gray-100 focus:ring-black dark:focus:ring-gray-500 border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded" />
                   <span>{t('settings.setCustomPriority')}</span>
                 </label>
                 {#if pushSettings.apps[app.id.toString()]?.min_priority !== null && pushSettings.apps[app.id.toString()]?.min_priority !== undefined}
                   <input type="number" min="0" max="10" 
                     bind:value={pushSettings.apps[app.id.toString()].min_priority} 
                     onchange={savePushSettings}
-                    class="w-full h-8 px-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-black animate-slide-up" />
+                    class="w-full h-8 px-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded text-sm focus:outline-none focus:border-black dark:focus:border-gray-500 animate-slide-up" />
                 {/if}
               </div>
             </div>
@@ -1350,8 +1350,14 @@
     background-color: #E5E7EB;
     border-radius: 4px;
   }
+  :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #374151;
+  }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: #D1D5DB;
+  }
+  :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #4B5563;
   }
 
   @keyframes slide-up {
