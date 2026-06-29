@@ -1,7 +1,6 @@
 mod websocket;
 
 use tauri::{
-    menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
     Manager, WindowEvent,
 };
@@ -19,10 +18,19 @@ fn get_system_fonts() -> Vec<String> {
     fonts
 }
 
+#[tauri::command]
+fn quit_app() {
+    std::process::exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_shell::init())
+    .plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        Some(vec!["--hidden"]),
+    ))
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_notification::init())
     .manage(websocket::WsState {
@@ -40,7 +48,8 @@ pub fn run() {
         websocket::delete_message,
         websocket::delete_all_messages,
         websocket::get_ws_status,
-        get_system_fonts
+        get_system_fonts,
+        quit_app
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -50,28 +59,9 @@ pub fn run() {
             .build(),
         )?;
       }
-      
-      let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
-      let settings_i = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-      let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-      
-      let menu = Menu::with_items(app, &[&show_i, &settings_i, &quit_i])?;
 
-      let _tray = TrayIconBuilder::new()
-          .menu(&menu)
+      let _tray = TrayIconBuilder::with_id("main")
           .icon(app.default_window_icon().unwrap().clone())
-          .on_menu_event(|app, event| match event.id.as_ref() {
-              "quit" => {
-                  std::process::exit(0);
-              }
-              "show" | "settings" => {
-                  if let Some(window) = app.get_webview_window("main") {
-                      let _ = window.show();
-                      let _ = window.set_focus();
-                  }
-              }
-              _ => {}
-          })
           .on_tray_icon_event(|tray, event| match event {
               tauri::tray::TrayIconEvent::Click {
                   button: tauri::tray::MouseButton::Left,
@@ -89,6 +79,14 @@ pub fn run() {
           .build(app)?;
 
       let app_handle = app.handle().clone();
+
+      let args: Vec<String> = std::env::args().collect();
+      if !args.contains(&"--hidden".to_string()) {
+          if let Some(window) = app.get_webview_window("main") {
+              let _ = window.show();
+          }
+      }
+
       tauri::async_runtime::spawn(async move {
           // Trigger initial connection
           let _ = websocket::restart_websocket(

@@ -10,7 +10,11 @@
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
   import FontSelect from './lib/FontSelect.svelte';
+  import { enable, isEnabled, disable } from '@tauri-apps/plugin-autostart';
   import { type LanguageCode, translations, getSystemLanguage } from './lib/i18n';
+  import { TrayIcon } from '@tauri-apps/api/tray';
+  import { Menu, MenuItem, PredefinedMenuItem, CheckMenuItem } from '@tauri-apps/api/menu';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
 
   interface GotifyMessage {
     id: number;
@@ -29,7 +33,7 @@
 
   interface AppPushSetting {
     enabled: boolean;
-    min_priority: number;
+    min_priority: number | null;
   }
 
   interface PushSettings {
@@ -53,12 +57,56 @@
   let activePopover: { id: string, top: number, left: number } | null = $state(null);
   let language = $state<LanguageCode>('en');
   let t = $derived((key: string) => translations[language][key] || key);
+  let autoStartEnabled = $state(false);
   let pushSettings = $state<PushSettings>({
     global_enabled: true,
     receive_all_apps: true,
     global_min_priority: 0,
     apps: {}
   });
+
+  let tray: TrayIcon | null = null;
+  $effect(() => {
+    const currentLang = language;
+    const currentAutostart = autoStartEnabled;
+    const buildTray = async () => {
+      try {
+        const appWindow = getCurrentWindow();
+        const items = [
+          await MenuItem.new({ id: 'show', text: t('tray.show'), action: () => { appWindow.show(); appWindow.setFocus(); } }),
+          await MenuItem.new({ id: 'settings', text: t('tray.settings'), action: () => { showSettings = true; appWindow.show(); appWindow.setFocus(); } }),
+          await PredefinedMenuItem.new({ item: 'Separator' }),
+          await CheckMenuItem.new({ 
+            id: 'autostart', 
+            text: t('settings.autostart'), 
+            checked: currentAutostart, 
+            action: async () => { 
+              autoStartEnabled = !autoStartEnabled; 
+              if (autoStartEnabled) await enable(); else await disable();
+            } 
+          }),
+          await PredefinedMenuItem.new({ item: 'Separator' }),
+          await MenuItem.new({ id: 'quit', text: t('tray.quit'), action: () => { invoke('quit_app'); } })
+        ];
+        
+        const menu = await Menu.new({ items });
+        
+        if (!tray) {
+          try {
+            tray = await TrayIcon.getById('main');
+          } catch(e) {}
+        }
+        
+        if (tray) {
+          await tray.setMenu(menu);
+        }
+      } catch (e) {
+        console.error('Failed to rebuild tray:', e);
+      }
+    };
+    buildTray();
+  });
+
   let isSaving = $state(false);
   let messages: GotifyMessage[] = $state([]);
   let apps: GotifyApplication[] = $state([]);
@@ -174,6 +222,22 @@
       const savedFontFallback = await store.get('font_fallback');
       const savedLanguage = await store.get('language');
       const savedRecentServers = await store.get('recent_servers');
+      const savedAutostartInit = await store.get('autostart_init');
+
+      if (!savedAutostartInit) {
+        try {
+          await enable();
+          autoStartEnabled = true;
+          await store.set('autostart_init', true);
+          await store.save();
+        } catch (e) {
+          console.error('Failed to init autostart:', e);
+        }
+      } else {
+        try {
+          autoStartEnabled = await isEnabled();
+        } catch (e) {}
+      }
       
       if (savedLanguage) {
         language = savedLanguage as LanguageCode;
@@ -380,6 +444,17 @@
       await store.set('push_settings', pushSettings);
       await store.save();
       
+      try {
+        if (autoStartEnabled) {
+          await enable();
+        } else {
+          await disable();
+        }
+      } catch (e) {
+        console.error('Failed to toggle autostart:', e);
+      }
+
+      errorMessage = '';
       showSettings = false;
       loadData();
     } catch (e) {
@@ -910,6 +985,11 @@
                 <div class="space-y-6">
                   <h2 id="settings-general" class="text-xl font-bold tracking-tight text-black border-b border-gray-100 pb-2 pt-4">{t('settings.general')}</h2>
                   
+                  <div class="flex items-center justify-between pb-2">
+                    <label for="settings-autostart" class="block text-sm font-medium text-gray-700">{t('settings.autostart')}</label>
+                    <input type="checkbox" id="settings-autostart" bind:checked={autoStartEnabled} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                  </div>
+
                   <div>
                     <label for="settings-language" class="block text-sm font-medium text-gray-700 mb-1.5">{t('settings.language')}</label>
                     <select 
