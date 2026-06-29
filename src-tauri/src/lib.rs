@@ -96,12 +96,6 @@ pub fn run() {
           ).await;
       });
 
-      // Apply native window shadow
-      #[cfg(any(windows, target_os = "macos"))]
-      if let Some(window) = app.get_webview_window("main") {
-          window_shadows::set_shadow(&window, true).unwrap_or_default();
-      }
-
       Ok(())
     })
     .on_window_event(|window, event| match event {
