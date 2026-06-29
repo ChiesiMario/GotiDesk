@@ -634,7 +634,7 @@
               </div>
             </div>
             <h1 class="text-3xl font-bold tracking-tight text-black leading-tight">
-              {pangu.spacingText(detailMessage.title || t('common.notification'))}
+              {formatText(detailMessage.title || t('common.notification'))}
             </h1>
           </div>
 
@@ -667,7 +667,7 @@
           <div class="h-px w-full bg-gray-200"></div>
           
           <div class="text-base text-gray-700 leading-relaxed whitespace-pre-wrap break-words markdown-content">
-            {@html pangu.spacingText(renderMarkdown(detailMessage.message))}
+            {@html formatText(renderMarkdown(detailMessage.message))}
           </div>
         </div>
       {:else}
@@ -1185,7 +1185,7 @@
                         <span class={`hidden group-hover/dot:block text-[11px] font-bold leading-none ${getPriorityTextColor(msg.priority)}`}>{msg.priority}</span>
                       </div>
                       <h3 class="font-semibold text-sm text-black tracking-tight leading-none">
-                        {pangu.spacingText(msg.title || t('common.notification'))}
+                        {formatText(msg.title || t('common.notification'))}
                       </h3>
                     </div>
                   </div>
@@ -1199,7 +1199,7 @@
                   </div>
                 </div>
                 <div class="text-sm text-gray-600 leading-relaxed markdown-content">
-                  {@html pangu.spacingText(renderMarkdown(msg.message))}
+                  {@html formatText(renderMarkdown(msg.message))}
                 </div>
                 <div class="mt-3 flex items-center justify-between">
                   <div class="flex items-center space-x-2">
