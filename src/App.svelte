@@ -55,6 +55,7 @@
   let fontPrimary = $state('');
   let fontFallback = $state('');
   let enablePangu = $state(true);
+  let draftEnablePangu = $state(true);
   let systemFonts: string[] = $state([]);
   let activePopover: { id: string, top: number, left: number } | null = $state(null);
   let language = $state<LanguageCode>('en');
@@ -267,7 +268,10 @@
       }
       if (savedFontPrimary !== null) fontPrimary = savedFontPrimary as string;
       if (savedFontFallback !== null) fontFallback = savedFontFallback as string;
-      if (savedPangu !== null) enablePangu = savedPangu as boolean;
+      if (savedPangu !== null) {
+        enablePangu = savedPangu as boolean;
+        draftEnablePangu = savedPangu as boolean;
+      }
       if (savedPushSettings) {
         pushSettings = savedPushSettings as PushSettings;
       }
@@ -446,6 +450,7 @@
     isSaving = true;
     errorMessage = '';
     try {
+      enablePangu = draftEnablePangu;
       if (!store) {
         store = await load('settings.json');
       }
@@ -1045,7 +1050,7 @@
                   <div class="space-y-5">
                     <div class="flex items-center justify-between">
                       <label for="settings-pangu" class="block text-sm font-medium text-gray-700">{t('settings.enablePangu')}</label>
-                      <input type="checkbox" id="settings-pangu" bind:checked={enablePangu} onchange={saveSettingsInline} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
+                      <input type="checkbox" id="settings-pangu" bind:checked={draftEnablePangu} class="h-4 w-4 text-black focus:ring-black border-gray-300 rounded" />
                     </div>
                   </div>
 
