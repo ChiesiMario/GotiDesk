@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "GotiDesk",
   "version": "1.0.0",
-  "identifier": "com.chiesimario.gotidesk",
+  "identifier": "com.gotidesk",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -30,6 +30,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "GotiDesk",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
