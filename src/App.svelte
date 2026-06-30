@@ -1143,7 +1143,19 @@
                     onclick={() => { selectedAppId = app.id; mobileView = 'detail'; searchQuery = ''; }}
                     class={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedAppId === app.id ? 'bg-black dark:bg-gray-700 text-white font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-black dark:hover:text-gray-200'}`}
                   >
-                    <span class="block pr-6 truncate">{app.name}</span>
+                    <span class="flex items-center space-x-1.5 pr-6 w-full min-w-0">
+                      <span class="truncate">{app.name}</span>
+                      {#if pushSettings.apps[app.id.toString()]}
+                        {#if pushSettings.apps[app.id.toString()].enabled === false}
+                          <svg class={`w-3.5 h-3.5 shrink-0 mt-[2px] ${selectedAppId === app.id ? 'text-white/60' : 'text-gray-400 dark:text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="Notifications Disabled">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                            <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                          </svg>
+                        {:else if pushSettings.apps[app.id.toString()].min_priority != null}
+                          <span class={`shrink-0 px-1.5 py-[1px] mt-[2px] text-[9px] font-bold tracking-wider rounded ${selectedAppId === app.id ? 'bg-white/20 text-white/90' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`} title="Custom Min Priority">P&ge;{pushSettings.apps[app.id.toString()].min_priority}</span>
+                        {/if}
+                      {/if}
+                    </span>
                   </button>
                   <button 
                     onclick={(e) => { 
