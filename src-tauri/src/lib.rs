@@ -6,6 +6,7 @@ use tauri::{
 };
 use tauri_plugin_store::StoreExt;
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_window_state::{WindowExt, StateFlags, AppHandleExt};
 #[tauri::command]
 fn get_system_fonts() -> Vec<String> {
     use font_kit::source::SystemSource;
@@ -21,8 +22,8 @@ fn get_system_fonts() -> Vec<String> {
 }
 
 #[tauri::command]
-fn quit_app() {
-    std::process::exit(0);
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
 }
 
 #[tauri::command]
@@ -30,6 +31,7 @@ fn app_ready(window: tauri::WebviewWindow) {
     let args: Vec<String> = std::env::args().collect();
     if window.label() == "main" {
         if !args.contains(&"--hidden".to_string()) {
+            let _ = window.restore_state(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED);
             let _ = window.show();
             let _ = window.set_focus();
         }
@@ -115,6 +117,7 @@ pub fn run() {
               "show" => {
                   if let Some(window) = app.get_webview_window("main") {
                       let _ = window.unminimize();
+                      let _ = window.restore_state(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED);
                       let _ = window.show();
                       let _ = window.set_focus();
                   }
@@ -122,6 +125,7 @@ pub fn run() {
               "settings" => {
                   if let Some(window) = app.get_webview_window("main") {
                       let _ = window.unminimize();
+                      let _ = window.restore_state(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED);
                       let _ = window.show();
                       let _ = window.set_focus();
                       let _ = window.emit("open-settings", ());
@@ -137,7 +141,7 @@ pub fn run() {
                   }
               }
               "quit" => {
-                  std::process::exit(0);
+                  app.exit(0);
               }
               _ => {}
           })
@@ -150,6 +154,7 @@ pub fn run() {
                   let app = tray.app_handle();
                   if let Some(window) = app.get_webview_window("main") {
                       let _ = window.unminimize();
+                      let _ = window.restore_state(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED);
                       let _ = window.show();
                       let _ = window.set_focus();
                   }
@@ -176,6 +181,7 @@ pub fn run() {
     .on_window_event(|window, event| match event {
         WindowEvent::CloseRequested { api, .. } => {
             if window.label() == "main" {
+                let _ = window.app_handle().save_window_state(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED);
                 window.hide().unwrap();
                 api.prevent_close();
             }
