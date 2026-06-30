@@ -177,6 +177,7 @@
   let confirmDeleteId: number | null = $state(null);
   let listCopiedId: number | null = $state(null);
   let deleteAllConfirmState = $state(0);
+  let logoutConfirmState = $state(0);
   let isDeletingAll = $state(false);
   let isReady = $state(false);
   
@@ -992,10 +993,22 @@
           </svg>
         </button>
         <button 
-          onclick={logout}
-          class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-1.5 rounded-md transition-colors"
+          onclick={() => {
+            if (logoutConfirmState === 0) {
+              logoutConfirmState = 1;
+              setTimeout(() => { logoutConfirmState = 0; }, 3000);
+            } else {
+              logout();
+              logoutConfirmState = 0;
+            }
+          }}
+          class={`w-[72px] inline-flex justify-center text-center text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+            logoutConfirmState === 1 
+              ? 'bg-red-500 text-white hover:bg-red-600 border border-transparent' 
+              : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+          }`}
         >
-          {t('common.logout')}
+          {logoutConfirmState === 1 ? t('common.confirmLogout') : t('common.logout')}
         </button>
       </div>
     </header>
