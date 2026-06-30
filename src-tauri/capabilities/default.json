@@ -11,6 +11,8 @@
     "notification:default",
     "shell:default",
     "autostart:default",
+    "core:menu:default",
+    "core:tray:default",
     "core:window:allow-close",
     "core:window:allow-minimize",
     "core:window:allow-maximize",
