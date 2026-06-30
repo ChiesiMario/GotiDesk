@@ -143,7 +143,7 @@ pub async fn start_websocket_loop(app: AppHandle) {
                                                         
                                                         let app_for_main = app_clone.clone();
                                                         let _ = app_for_main.run_on_main_thread(move || {
-                                                            let _ = Toast::new(Toast::POWERSHELL_APP_ID)
+                                                            let _ = Toast::new("com.gotidesk")
                                                                 .title(&title)
                                                                 .text1(&body)
                                                                 .sound(Some(Sound::SMS))
