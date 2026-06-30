@@ -2,8 +2,10 @@ mod websocket;
 
 use tauri::{
     tray::TrayIconBuilder,
-    Manager, WindowEvent,
+    Manager, WindowEvent, Emitter,
 };
+use tauri_plugin_store::StoreExt;
+use tauri_plugin_autostart::ManagerExt;
 #[tauri::command]
 fn get_system_fonts() -> Vec<String> {
     use font_kit::source::SystemSource;
@@ -81,8 +83,64 @@ pub fn run() {
         )?;
       }
 
+      let mut lang = "en".to_string();
+      if let Ok(store) = app.handle().store("settings.json") {
+          if let Some(val) = store.get("language") {
+              if let Some(l) = val.as_str() {
+                  lang = l.to_string();
+              }
+          }
+      }
+
+      let (show_txt, settings_txt, autostart_txt, quit_txt) = match lang.as_str() {
+          "zh-TW" => ("顯示 GotiDesk", "設定", "開機自啟動", "離開"),
+          "zh-CN" => ("显示 GotiDesk", "设置", "开机自启动", "退出"),
+          _ => ("Show GotiDesk", "Settings", "Autostart", "Quit"),
+      };
+
+      let show_i = tauri::menu::MenuItem::with_id(app, "show", show_txt, true, None::<&str>)?;
+      let settings_i = tauri::menu::MenuItem::with_id(app, "settings", settings_txt, true, None::<&str>)?;
+      let autostart_enabled = app.autolaunch().is_enabled().unwrap_or(false);
+      let autostart_i = tauri::menu::CheckMenuItem::with_id(app, "autostart", autostart_txt, true, autostart_enabled, None::<&str>)?;
+      let quit_i = tauri::menu::MenuItem::with_id(app, "quit", quit_txt, true, None::<&str>)?;
+      let sep1 = tauri::menu::PredefinedMenuItem::separator(app)?;
+      let sep2 = tauri::menu::PredefinedMenuItem::separator(app)?;
+
+      let menu = tauri::menu::Menu::with_items(app, &[&show_i, &settings_i, &sep1, &autostart_i, &sep2, &quit_i])?;
+
       let _tray = TrayIconBuilder::with_id("main")
           .icon(app.default_window_icon().unwrap().clone())
+          .menu(&menu)
+          .on_menu_event(|app, event| match event.id().as_ref() {
+              "show" => {
+                  if let Some(window) = app.get_webview_window("main") {
+                      let _ = window.unminimize();
+                      let _ = window.show();
+                      let _ = window.set_focus();
+                  }
+              }
+              "settings" => {
+                  if let Some(window) = app.get_webview_window("main") {
+                      let _ = window.unminimize();
+                      let _ = window.show();
+                      let _ = window.set_focus();
+                      let _ = window.emit("open-settings", ());
+                  }
+              }
+              "autostart" => {
+                  let autolaunch = app.autolaunch();
+                  let is_enabled = autolaunch.is_enabled().unwrap_or(false);
+                  if is_enabled {
+                      let _ = autolaunch.disable();
+                  } else {
+                      let _ = autolaunch.enable();
+                  }
+              }
+              "quit" => {
+                  std::process::exit(0);
+              }
+              _ => {}
+          })
           .on_tray_icon_event(|tray, event| match event {
               tauri::tray::TrayIconEvent::Click {
                   button: tauri::tray::MouseButton::Left,
@@ -91,6 +149,7 @@ pub fn run() {
               } => {
                   let app = tray.app_handle();
                   if let Some(window) = app.get_webview_window("main") {
+                      let _ = window.unminimize();
                       let _ = window.show();
                       let _ = window.set_focus();
                   }
@@ -101,7 +160,6 @@ pub fn run() {
 
       let app_handle = app.handle().clone();
 
-      let args: Vec<String> = std::env::args().collect();
       // We no longer show the window immediately here.
       // We let the frontend call window.show() once the Svelte splash screen is ready to prevent OS white flash.
 

@@ -152,46 +152,15 @@
     apps: {}
   });
 
-  let tray: TrayIcon | null = null;
-  $effect(() => {
-    const currentLang = language;
-    const currentAutostart = autoStartEnabled;
-    const buildTray = async () => {
-      try {
-        const appWindow = getCurrentWindow();
-        const items = [
-          await MenuItem.new({ id: 'show', text: t('tray.show'), action: () => { appWindow.show(); appWindow.setFocus(); } }),
-          await MenuItem.new({ id: 'settings', text: t('tray.settings'), action: () => { showSettings = true; appWindow.show(); appWindow.setFocus(); } }),
-          await PredefinedMenuItem.new({ item: 'Separator' }),
-          await CheckMenuItem.new({ 
-            id: 'autostart', 
-            text: t('settings.autostart'), 
-            checked: currentAutostart, 
-            action: async () => { 
-              autoStartEnabled = !autoStartEnabled; 
-              if (autoStartEnabled) await enable(); else await disable();
-            } 
-          }),
-          await PredefinedMenuItem.new({ item: 'Separator' }),
-          await MenuItem.new({ id: 'quit', text: t('tray.quit'), action: () => { invoke('quit_app'); } })
-        ];
-        
-        const menu = await Menu.new({ items });
-        
-        if (!tray) {
-          try {
-            tray = await TrayIcon.getById('main');
-          } catch(e) {}
-        }
-        
-        if (tray) {
-          await tray.setMenu(menu);
-        }
-      } catch (e) {
-        console.error('Failed to rebuild tray:', e);
-      }
-    };
-    buildTray();
+  let unlistenSettings: (() => void) | undefined;
+  onMount(() => {
+    listen('open-settings', () => {
+      showSettings = true;
+      getCurrentWebviewWindow().show();
+      getCurrentWebviewWindow().setFocus();
+    }).then(unlisten => {
+      unlistenSettings = unlisten;
+    });
   });
 
   let isSaving = $state(false);
@@ -467,6 +436,7 @@
     return () => {
       if (unlistenMessage) unlistenMessage();
       if (unlistenDetail) unlistenDetail();
+      if (unlistenSettings) unlistenSettings();
     };
   });
 
