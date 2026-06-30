@@ -951,6 +951,9 @@
             {#if pushSettings.global_enabled}
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               <span>Push ON</span>
+              {#if pushSettings.global_min_priority > 0}
+                <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold tracking-wider rounded border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400">P &ge; {pushSettings.global_min_priority}</span>
+              {/if}
             {:else}
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
@@ -1122,7 +1125,7 @@
                       activePopover = { id: 'global', top: rect.bottom + 8, left: rect.left };
                     }
                   }}
-                  class={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 ${
+                  class={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors ${
                     selectedAppId === null 
                       ? (activePopover?.id === 'global' ? 'bg-white/20 text-white' : 'text-gray-300 hover:text-white hover:bg-white/20')
                       : (activePopover?.id === 'global' ? 'bg-black/10 dark:bg-white/10 text-black dark:text-white' : 'text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10')
