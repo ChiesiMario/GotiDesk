@@ -119,18 +119,16 @@ pub async fn start_websocket_loop(app: AppHandle) {
                                                     let mut should_push = false;
                                                     
                                                     if push_settings.global_enabled {
-                                                        if push_settings.receive_all_apps {
-                                                            should_push = gotify_msg.priority >= push_settings.global_min_priority;
-                                                        } else {
-                                                            if let Some(appid) = gotify_msg.appid {
-                                                                let appid_str = appid.to_string();
-                                                                if let Some(app_setting) = push_settings.apps.get(&appid_str) {
-                                                                    let prio = app_setting.min_priority.unwrap_or(push_settings.global_min_priority);
-                                                                    should_push = app_setting.enabled && gotify_msg.priority >= prio;
-                                                                }
+                                                        if let Some(appid) = gotify_msg.appid {
+                                                            let appid_str = appid.to_string();
+                                                            if let Some(app_setting) = push_settings.apps.get(&appid_str) {
+                                                                let prio = app_setting.min_priority.unwrap_or(push_settings.global_min_priority);
+                                                                should_push = app_setting.enabled && gotify_msg.priority >= prio;
                                                             } else {
-                                                                should_push = gotify_msg.priority >= push_settings.global_min_priority;
+                                                                should_push = push_settings.receive_all_apps && gotify_msg.priority >= push_settings.global_min_priority;
                                                             }
+                                                        } else {
+                                                            should_push = gotify_msg.priority >= push_settings.global_min_priority;
                                                         }
                                                     }
                                                     
