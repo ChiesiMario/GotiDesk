@@ -4,7 +4,7 @@
 
 # GotiDesk
 
-A sleek, lightweight, and native-feeling desktop client for Gotify, built with Tauri v2 and Svelte 5. GotiDesk is designed to seamlessly integrate into your Windows desktop environment, providing reliable WebSocket-based push notifications without the overhead of Electron.
+A sleek, lightweight, and native-feeling desktop client for [Gotify](https://gotify.net/), built with Tauri v2 and Svelte 5. GotiDesk is designed to seamlessly integrate into your Windows desktop environment, providing reliable WebSocket-based push notifications without the overhead of Electron.
 
 ![GotiDesk Screenshot](./Screenshot/Screenshot.png)
 
@@ -15,6 +15,7 @@ A sleek, lightweight, and native-feeling desktop client for Gotify, built with T
 - **Granular App Controls:** Configure notification priorities, toggle notifications per-app, or apply global settings.
 - **Auto-Start on Boot:** Optionally launch GotiDesk automatically when Windows starts.
 - **Sleek Minimalist UI:** Designed with a monochrome aesthetic (black, white, and grays) and full dark mode support, built with Tailwind CSS.
+- **Pangu Spacing:** Automatically inserts space (Pangu's spacing) between CJK (Chinese, Japanese, Korean) characters and Latin alphabets/numbers to enhance reading typography.
 - **Resource Efficient:** Built on Rust and Tauri v2, using a fraction of the memory required by traditional web-wrapper apps.
 
 ## Installation

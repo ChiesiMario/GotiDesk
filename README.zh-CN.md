@@ -4,7 +4,7 @@
 
 # GotiDesk
 
-一款基于 Tauri v2 与 Svelte 5 打造，简洁、轻量且拥有原生体验的 Gotify 桌面端接收器。GotiDesk 专为 Windows 桌面环境深度整合而设计，能提供稳定可靠的 WebSocket 推送通知，且无需承受传统 Electron 应用的高资源占用。
+一款基于 Tauri v2 与 Svelte 5 打造，简洁、轻量且拥有原生体验的 [Gotify](https://gotify.net/) 桌面端接收器。GotiDesk 专为 Windows 桌面环境深度整合而设计，能提供稳定可靠的 WebSocket 推送通知，且无需承受传统 Electron 应用的高资源占用。
 
 ![GotiDesk Screenshot](./Screenshot/Screenshot.png)
 
@@ -15,6 +15,7 @@
 - **精细的应用管控：** 您可以为不同的 App 单独设置通知优先级、单独开启或关闭推送，或是应用全局设置。
 - **开机自启动：** 支持通过 Windows 注册表 (Registry) 设置，在系统开机时自动于后台启动 GotiDesk。
 - **极简 UI 设计：** 采用纯粹的黑白灰单色调美学设计，由 Tailwind CSS 驱动，并完美支持深色模式 (Dark Mode)。
+- **盘古之白 (中英排版)：** 自动在中文字符与半角英文、数字之间加入空格，提供最舒适的文字阅读体验。
 - **极致性能：** 底层基于 Rust 构建，内存占用极低，运行极为流畅。
 
 ## 安装指南
