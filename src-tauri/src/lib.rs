@@ -24,10 +24,10 @@ fn quit_app() {
 }
 
 #[tauri::command]
-fn app_ready(app: tauri::AppHandle) {
+fn app_ready(window: tauri::WebviewWindow) {
     let args: Vec<String> = std::env::args().collect();
-    if !args.contains(&"--hidden".to_string()) {
-        if let Some(window) = app.get_webview_window("main") {
+    if window.label() == "main" {
+        if !args.contains(&"--hidden".to_string()) {
             let _ = window.show();
             let _ = window.set_focus();
         }
