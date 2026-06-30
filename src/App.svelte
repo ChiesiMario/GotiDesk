@@ -1203,8 +1203,8 @@
           </div>
         {/if}
         {#if showSettings}
-          <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
-            <div class="max-w-2xl w-full space-y-8 scroll-smooth">
+          <div class={`flex-1 overflow-y-auto p-8 custom-scrollbar ${settingsActiveTab === 'about' ? 'flex flex-col items-center justify-center' : ''}`}>
+            <div class={`max-w-2xl w-full space-y-8 scroll-smooth ${settingsActiveTab === 'about' ? 'flex justify-center' : ''}`}>
               
               {#if settingsActiveTab === 'main'}
                 <form onsubmit={(e) => { e.preventDefault(); saveSettingsInline(); }} class="space-y-12 max-w-md pb-10">
@@ -1335,7 +1335,7 @@
                 </div>
               </form>
               {:else if settingsActiveTab === 'about'}
-                <div class="space-y-10 max-w-md pb-10 pt-4 flex flex-col items-center text-center animate-fade-in-up">
+                <div class="space-y-10 w-full max-w-md pb-10 pt-4 flex flex-col items-center text-center animate-fade-in-up">
                   <div class="w-32 h-32 mb-4">
                     <Logo />
                   </div>
