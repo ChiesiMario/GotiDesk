@@ -1022,12 +1022,13 @@
       {:else}
         {@const app = apps.find(a => a.id.toString() === activePopover?.id)}
         {#if app}
-          <div class="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-4 text-gray-800 dark:text-gray-200 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
+          <div role="none" class="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-4 text-gray-800 dark:text-gray-200 animate-slide-up" style="top: {activePopover.top}px; left: {activePopover.left}px; width: 256px;" onclick={(e) => e.stopPropagation()}>
             <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 truncate">{app.name} Settings</h3>
             <div class="space-y-4">
               <div class="flex items-center justify-between">
-                <label class="text-sm font-medium">{t('settings.enablePush')}</label>
+                <label class="text-sm font-medium" for="push-enabled-{app.id}">{t('settings.enablePush')}</label>
                 <input type="checkbox" 
+                  id="push-enabled-{app.id}"
                   checked={pushSettings.apps[app.id.toString()]?.enabled ?? true}
                   onchange={(e) => {
                     const checked = e.currentTarget.checked;
@@ -1147,7 +1148,8 @@
                       <span class="truncate">{app.name}</span>
                       {#if pushSettings.apps[app.id.toString()]}
                         {#if pushSettings.apps[app.id.toString()].enabled === false}
-                          <svg class={`w-3.5 h-3.5 shrink-0 mt-[2px] ${selectedAppId === app.id ? 'text-white/60' : 'text-gray-400 dark:text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="Notifications Disabled">
+                          <svg class={`w-3.5 h-3.5 shrink-0 mt-[2px] ${selectedAppId === app.id ? 'text-white/60' : 'text-gray-400 dark:text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Notifications Disabled">
+                            <title>Notifications Disabled</title>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                             <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
                           </svg>
@@ -1357,7 +1359,7 @@
                   
                   <div class="pt-8 text-center">
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                      Crafted with ❤️ by <a href="#" onclick={(e) => { e.preventDefault(); open('https://github.com/ChiesiMario'); }} class="font-medium text-black dark:text-gray-200 hover:underline">ChiesiMario</a>
+                      Crafted with ❤️ by <button onclick={(e) => { e.preventDefault(); open('https://github.com/ChiesiMario'); }} class="font-medium text-black dark:text-gray-200 hover:underline">ChiesiMario</button>
                     </p>
                   </div>
                 </div>
